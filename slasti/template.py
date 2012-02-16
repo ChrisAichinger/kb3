@@ -503,6 +503,25 @@ template_html_editform = Template(
     #end if
     """)
 
+# <posts user="zaitcev" update="2010-12-16T20:17:55Z" tag="" total="860">
+# We omit total. Also, we noticed that Del.icio.us often miscalculates
+# the total, so obviously it's not used by any applications.
+# We omit the last update as well. Our data base does not keep it.
+template_xml_export = Template("""
+    <?xml version="1.0" encoding="UTF-8"?>
+    <posts user="$name_user" tag="">
+    #for $mark in ${marks}
+        <post href="${mark.xmlhref_mark_url}"
+              description="${mark.title}"
+              tag="${mark.tags_str}"
+              time="${mark.xmldate}"
+              extended="${mark.note:-}" />
+    #end for
+    </posts>
+    """)
+
+template_simple_output = Template("""$output""")
+
 
 ## Normally not executed - test code
 ## Run this file directly from the commandline to see the generated html

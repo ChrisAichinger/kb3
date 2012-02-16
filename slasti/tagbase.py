@@ -15,6 +15,7 @@ import time
 # import urllib
 import cgi
 import base64
+import urllib
 
 from slasti import AppError
 import slasti
@@ -238,27 +239,6 @@ class TagMark:
     def tag(self):
         return self.ourtag;
 
-    def xml(self):
-        datestr = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.stamp0))
-
-        title = self.title
-        title = cgi.escape(title, 1)
-
-        url = self.url;
-        url = cgi.escape(url, 1)
-
-        tagstr = " ".join(self.tags)
-        tagstr = cgi.escape(tagstr, 1)
-
-        note = self.note
-        note = cgi.escape(note, 1)
-
-        # Del.icio.us also export hash="" (MD5 of URL in href) and meta=""
-        # (MD5 of unknown content). We don't know if this is needed for anyone.
-        fmt = '  <post href="%s" description="%s" tag="%s" time="%s"'+\
-              ' extended="%s" />\n'
-        return fmt % (url, title, tagstr, datestr, note)
-
     def get_editpath(self, path_prefix):
         return '%s/edit?mark=%d.%02d' % (path_prefix, self.stamp0, self.stamp1)
 
@@ -282,8 +262,10 @@ class TagMark:
         ts = time.gmtime(self.stamp0)
         jsondict = {
             "date": time.strftime("%Y-%m-%d", ts),
+            "xmldate": time.strftime("%Y-%m-%dT%H:%M:%SZ", ts),
             "href_mark": mark_url,
             "href_mark_url": url,
+            "xmlhref_mark_url": url,
             "title": cgi.escape(title, True),
             "note": cgi.escape(self.note) if self.note else None,
             "tags": [],

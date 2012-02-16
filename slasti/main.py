@@ -207,9 +207,9 @@ def fetch_get(start_response, ctx):
     body = fetch_body(url)
     title = fetch_parse(body)
 
-    output = ['%s\r\n' % title]
     start_response("200 OK", [('Content-type', 'text/plain')])
-    return output
+    jsondict = { "output": '%s\r\n' % title }
+    return [slasti.template.template_simple_output.substitute(jsondict)]
 
 def mark_post(start_response, ctx, mark):
     argd = find_post_args(ctx)
@@ -295,19 +295,14 @@ def root_tag_html(start_response, ctx, tag):
 def full_mark_xml(start_response, ctx):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
-    response_headers = [('Content-type', 'text/xml')]
-    start_response("200 OK", response_headers)
-    output = []
-    output.append('<?xml version="1.0" encoding="UTF-8"?>\n')
-    # <posts user="zaitcev" update="2010-12-16T20:17:55Z" tag="" total="860">
-    # We omit total. Also, we noticed that Del.icio.us often miscalculates
-    # the total, so obviously it's not used by any applications.
-    # We omit the last update as well. Our data base does not keep it.
-    output.append('<posts user="'+ctx.user['name']+'" tag="">\n')
+
+    start_response("200 OK", [('Content-type', 'text/xml')])
+    jsondict = { "marks": [] }
+    userpath = ctx.prefix+'/'+ctx.user['name']
     for mark in ctx.base:
-        output.append(mark.xml())
-    output.append("</posts>\n")
-    return output
+        jsondict["marks"].append(mark.to_jsondict(userpath))
+
+    return [slasti.template.template_xml_export.substitute(jsondict)]
 
 def full_tag_html(start_response, ctx):
     if ctx.method != 'GET':
@@ -371,7 +366,8 @@ def login_post(start_response, ctx):
     # We operate on a hex of the salted password's digest, to avoid parsing.
     if pwstr != ctx.user['pass']:
         start_response("403 Not Permitted", [('Content-type', 'text/plain')])
-        return ["403 Not Permitted: Bad Password\r\n"]
+        jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
+        return [slasti.template.template_simple_output.substitute(jsondict)]
 
     csalt = base64.b64encode(os.urandom(6))
     flags = "-"
