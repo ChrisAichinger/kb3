@@ -12,7 +12,7 @@ import sys
 import Cookie
 
 # CFGUSERS was replaced by  SetEnv slasti.userconf /slasti-users.conf
-# CFGUSERS = "/etc/slasti-users.conf"
+CFGUSERS = "slasti-users.conf"
 
 # Replaced by  WSGIDaemonProcess slasti python-path=/usr/lib/slasti-mod
 # sys.path = sys.path + [ '/usr/lib/slasti-mod' ]
@@ -109,6 +109,8 @@ def do_root(environ, start_response):
 def do_user(environ, start_response, path):
     # We will stop reloading UserBase on every call once we figure out how.
     users = UserBase()
+    if not environ.has_key('slasti.userconf'):
+        environ['slasti.userconf'] = CFGUSERS
     if not environ.has_key('slasti.userconf'):
         raise AppError("No environ 'slasti.userconf'")
     users.open(environ['slasti.userconf'])
