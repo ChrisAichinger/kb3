@@ -5,6 +5,8 @@
 # See file COPYING for licensing information (expect GPL 2).
 #
 
+from __future__ import unicode_literals
+
 import time
 import urllib
 import urlparse
@@ -23,9 +25,7 @@ import tagbase
 import slasti.template
 
 PAGESZ = 25
-
-BLACKSTAR = "&#9733;"
-WHITESTAR = "&#9734;"
+WHITESTAR = "\u2606"
 
 def page_back(mark):
     mark = mark.pred()
@@ -77,7 +77,7 @@ def page_any_html(start_response, ctx, mark_top):
     else:
         path = userpath
 
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict["current_tag"] = what
     jsondict["marks"] = []
@@ -122,7 +122,7 @@ def page_empty_html(start_response, ctx):
     username = ctx.user['name']
     userpath = ctx.prefix+'/'+username
 
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
                 "current_tag": "[-]",
@@ -207,7 +207,7 @@ def fetch_get(start_response, ctx):
     body = fetch_body(url)
     title = fetch_parse(body)
 
-    start_response("200 OK", [('Content-type', 'text/plain')])
+    start_response("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
     jsondict = { "output": '%s\r\n' % title }
     return [slasti.template.template_simple_output.substitute(jsondict)]
 
@@ -229,7 +229,7 @@ def mark_post(start_response, ctx, mark):
 def mark_get(start_response, ctx, mark, stamp0):
     path = ctx.prefix+'/'+ctx.user['name']
 
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
                 "marks": [mark.to_jsondict(path)],
@@ -296,7 +296,7 @@ def full_mark_xml(start_response, ctx):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
 
-    start_response("200 OK", [('Content-type', 'text/xml')])
+    start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
     jsondict = { "marks": [] }
     userpath = ctx.prefix+'/'+ctx.user['name']
     for mark in ctx.base:
@@ -309,7 +309,7 @@ def full_tag_html(start_response, ctx):
         raise AppGetError(ctx.method)
 
     userpath = ctx.prefix + '/' + ctx.user['name']
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict["current_tag"] = "tags"
     jsondict["tags"] = []
@@ -317,7 +317,7 @@ def full_tag_html(start_response, ctx):
         ref = tag.key()
         jsondict["tags"].append(
             {"href_tag": '%s/%s/' % (userpath, slasti.escapeURLComponent(ref)),
-             "name_tag": unicode(cgi.escape(slasti.safestr(ref)),'utf-8'),
+             "name_tag": ref,
              "num_tagged": tag.num(),
             })
     return [slasti.template.template_html_tags.substitute(jsondict)]
@@ -327,7 +327,7 @@ def login_form(start_response, ctx):
     userpath = ctx.prefix+'/'+username
     savedref = ctx.get_query_arg("savedref")
 
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = {
             "username": username,
             "action_login": "%s/login" % userpath,
@@ -365,7 +365,8 @@ def login_post(start_response, ctx):
 
     # We operate on a hex of the salted password's digest, to avoid parsing.
     if pwstr != ctx.user['pass']:
-        start_response("403 Not Permitted", [('Content-type', 'text/plain')])
+        start_response("403 Not Permitted",
+                       [('Content-type', 'text/plain; charset=utf-8')])
         jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
         return [slasti.template.template_simple_output.substitute(jsondict)]
 
@@ -379,7 +380,7 @@ def login_post(start_response, ctx):
     # We use hex instead of base64 because it's easy to test in shell.
     mdstr = coohash.hexdigest()
 
-    response_headers = [('Content-type', 'text/html')]
+    response_headers = [('Content-type', 'text/html; charset=utf-8')]
     # Set an RFC 2901 cookie (not RFC 2965).
     response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
     response_headers.append(('Location', slasti.safestr(redihref)))
@@ -425,34 +426,10 @@ def login_verify(ctx):
 
     return 1
 
-html_escape_table = {
-    ">": "&gt;",
-    "<": "&lt;",
-    "&": "&amp;",
-    '"': "&quot;",
-    "'": "&apos;",
-    "\\": "&#92;",
-    }
-
-def html_escape(text):
-    """Escape strings to be safe for use anywhere in HTML
-
-    Should be used for escaping any user-supplied strings values before
-    outputting them in HTML. The output is safe to use HTML running text and
-    within HTML attributes (e.g. value="%s").
-
-    Escaped chars:
-      < and >   HTML tags
-      &         HTML entities
-      " and '   Allow use within HTML tag attributes
-      \\        Shouldn't actually be necessary, but better safe than sorry
-    """
-    return "".join(html_escape_table.get(c,c) for c in text)
-
 def new_form(start_response, ctx):
     userpath = ctx.prefix + '/' + ctx.user['name']
-    title = html_escape(ctx.get_query_arg('title'))
-    href = html_escape(ctx.get_query_arg('href'))
+    title = ctx.get_query_arg('title')
+    href = ctx.get_query_arg('href')
 
     jsondict = ctx.create_jsondict()
     jsondict.update({
@@ -466,7 +443,7 @@ def new_form(start_response, ctx):
             "val_title": title,
             "val_href": href,
         })
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     return [slasti.template.template_html_editform.substitute(jsondict)]
 
 def edit_form(start_response, ctx):
@@ -488,13 +465,13 @@ def edit_form(start_response, ctx):
         "href_current_tag": '%s/mark.%d.%02d' % (userpath, stamp0, stamp1),
         "action_edit": "%s/mark.%d.%02d" % (userpath, stamp0, stamp1),
         "action_delete": userpath + '/delete',
-        "val_title": cgi.escape(unicode(mark.title, "utf-8"), 1),
-        "val_href": cgi.escape(mark.url, 1),
-        "val_tags": cgi.escape(' '.join(mark.tags), 1),
-        "val_note": cgi.escape(mark.note, 1),
+        "val_title": mark.title,
+        "val_href": mark.url,
+        "val_tags": ' '.join(mark.tags),
+        "val_note": mark.note,
         })
 
-    start_response("200 OK", [('Content-type', 'text/html')])
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     return [slasti.template.template_html_editform.substitute(jsondict)]
 
 # The name edit_post() is a bit misleading, because POST to /edit is used
@@ -514,7 +491,7 @@ def edit_post(start_response, ctx):
 
     redihref = '%s/mark.%d.%02d' % (userpath, stamp0, stamp1)
 
-    response_headers = [('Content-type', 'text/html')]
+    response_headers = [('Content-type', 'text/html; charset=utf-8')]
     response_headers.append(('Location', slasti.safestr(redihref)))
     start_response("303 See Other", response_headers)
 
@@ -547,7 +524,7 @@ def redirect_to_login(start_response, ctx):
     userpath = ctx.prefix + '/' + ctx.user['name']
     thisref = ctx.path + '?' + urllib.quote_plus(ctx._query)
     login_loc = userpath + '/login?savedref=' + thisref
-    response_headers = [('Content-type', 'text/html'),
+    response_headers = [('Content-type', 'text/html; charset=utf-8'),
                         ('Location', slasti.safestr(login_loc))]
     start_response("303 See Other", response_headers)
 

@@ -5,7 +5,10 @@
 # See file COPYING for licensing information (expect GPL 2).
 #
 
+from __future__ import unicode_literals
+
 import urllib
+import urlparse
 
 class AppError(Exception):
     pass
@@ -30,6 +33,19 @@ def safestr(u):
 def escapeURLComponent(s):
     # Turn s into a bytes first, quote_plus blows up otherwise
     return unicode(urllib.quote_plus(s.encode("utf-8")))
+
+def escapeURL(s):
+    # quote_plus() doesn't work as it clobbers the :// portion of the URL
+    # Make sure the resulting string is safe to use within HTML attributes.
+    # N.B. Mooneyspace.com hates when we reaplace '&' with %26, so don't.
+    # On output, the remaining & will be turned into &quot; by the templating
+    # engine. No unescaped-entity problems should result here.
+    s = s.replace('"', '%22')
+    s = s.replace("'", '%27')
+    # s = s.replace('&', '%26')
+    s = s.replace('<', '%3C')
+    s = s.replace('>', '%3E')
+    return s
 
 class Context:
     def __init__(self, pfx, user, base, method, path, query, pinput, coos):
@@ -81,7 +97,7 @@ class Context:
 
         qdic = urlparse.parse_qs(args)
         for key in qdic:
-            qdic[key] = qdic[key][0]
+            qdic[key] = qdic[key][0].decode("utf-8", 'replace')
 
         return qdic
 

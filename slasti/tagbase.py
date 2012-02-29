@@ -7,6 +7,8 @@
 # requires:
 #  codecs
 #
+from __future__ import unicode_literals
+
 import codecs
 utf8_writer = codecs.getwriter("utf-8")
 import os
@@ -28,11 +30,11 @@ import slasti
 # The only way is to avoid UTF-8 filenames entirely.
 
 def fs_encode(tag):
-    return base64.b64encode(slasti.safestr(tag), "+_")
+    return base64.b64encode(slasti.safestr(tag), b"+_")
 
 def fs_decode(tag):
     # XXX try TypeError -- and then what?
-    s = base64.b64decode(tag, "+_")
+    s = base64.b64decode(tag, b"+_")
     # XXX try UnicodeDecodeError -- and then what?
     u = s.decode('utf-8')
     return u
@@ -60,7 +62,8 @@ def split_marks(tagstr):
 
 def load_tag(tagdir, tag):
     try:
-        f = open(tagdir+"/"+fs_encode(tag), "r")
+        f = codecs.open(tagdir+"/"+fs_encode(tag), "r",
+                        encoding="utf-8", errors="replace")
     except IOError, e:
         f = None
     if f != None:
@@ -247,27 +250,16 @@ class TagMark:
         if not title:
             title = self.url
 
-        # The urllib.quote_plus does not work as expected: it escapes ':' and
-        # such too, so "http://host" turns into "http%3A//host", and this
-        # corrupts the link. So, hand-roll quotes and XML escapes for now.
-        # N.B. Mooneyspace.com hates when we replace '&' with %26, so don't.
-        ## url = urllib.quote_plus(self.url)
-        url = self.url
-        url = url.replace('"', '%22')
-        # url = url.replace('&', '%26')
-        url = url.replace('<', '%3C')
-        url = url.replace('>', '%3E')
-
         mark_url = '%s/mark.%d.%02d' % (path_prefix, self.stamp0, self.stamp1)
         ts = time.gmtime(self.stamp0)
         jsondict = {
-            "date": time.strftime("%Y-%m-%d", ts),
-            "xmldate": time.strftime("%Y-%m-%dT%H:%M:%SZ", ts),
+            "date": unicode(time.strftime("%Y-%m-%d", ts)),
+            "xmldate": unicode(time.strftime("%Y-%m-%dT%H:%M:%SZ", ts)),
             "href_mark": mark_url,
-            "href_mark_url": url,
-            "xmlhref_mark_url": url,
-            "title": cgi.escape(title, True),
-            "note": cgi.escape(self.note) if self.note else None,
+            "href_mark_url": slasti.escapeURL(self.url),
+            "xmlhref_mark_url": cgi.escape(self.url, True),
+            "title": title,
+            "note": self.note,
             "tags": [],
             "key": "%d.%02d" % (self.stamp0, self.stamp1),
         }
