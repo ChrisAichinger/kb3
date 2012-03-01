@@ -392,6 +392,12 @@ template_html_body_top = Template("""
         #else
             [e]
         #end if
+        Search:
+        <form method="GET" action="$action_search"
+              style="margin: 0px 0px 0px 0px; display: inline;">
+        <input type="text" name="q" value="${val_search:-}" />
+        <input type="submit" value="Go" />
+        </form>
     </td>
 </tr></table>
 """)

@@ -80,6 +80,7 @@ class Context:
                     "href_user": userpath,
                     "href_tags": "%s/tags" % userpath,
                     "href_new": "%s/new" % userpath,
+                    "action_search": "%s/search" % userpath,
                    }
         if self.flogin:
             jsondict["href_export"]= userpath + '/export.xml'

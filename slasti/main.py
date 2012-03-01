@@ -47,6 +47,34 @@ def page_url_from_mark(mark, path):
     (stamp0, stamp1) = mark.key()
     return '%s/page.%d.%02d' % (path, stamp0, stamp1)
 
+def search_back(mark_top, query):
+    mark = mark_top.pred()
+    if not mark:
+        return None
+    n = 0
+    while True:
+        # Search for PAGESZ+1 matches, then call call succ() on the first one.
+        # This avoids showing the "previous page" link on the first page when
+        # doing a search, clicking ">> next page", followed by "<< prev page".
+        # Otherwise we'd show a previous page button, even if there's no
+        # matches in earlier bookmarks.
+        if mark.contains(query):
+            n += 1
+        if n > PAGESZ:
+            return mark.succ()
+
+        mark_pred = mark.pred()
+        if not mark_pred:
+            return mark
+        mark = mark_pred
+
+def search_url_from_mark(mark, query, path):
+    if mark is None:
+        return None
+    (stamp0, stamp1) = mark.key()
+    query = slasti.escapeURLComponent(query)
+    return '%s/search?q=%s&firstmark=%d.%02d' % (path, query, stamp0, stamp1)
+
 def find_post_args(ctx):
     rdic = {}
     for key in ['title', 'href', 'tags', 'extra']:
@@ -322,6 +350,52 @@ def full_tag_html(start_response, ctx):
             })
     return [slasti.template.template_html_tags.substitute(jsondict)]
 
+def full_search_html(start_response, ctx):
+    if ctx.method != 'GET':
+        raise AppGetError(ctx.method)
+
+    userpath = ctx.prefix + '/' + ctx.user['name']
+    query = ctx.get_query_arg('q')
+    if not query:
+        # If q is missing/empty (e.g. search for ""), redirect to homepage
+        response_headers = [('Content-type', 'text/html; charset=utf-8'),
+                            ('Location', slasti.safestr(userpath))]
+        start_response("303 See Other", response_headers)
+
+        jsondict = { "href_redir": userpath }
+        return [slasti.template.template_html_redirect.substitute(jsondict)]
+
+    firstmark = ctx.get_query_arg('firstmark')
+    if not firstmark:
+        mark_top = ctx.base.first()
+    else:
+        (stamp0, stamp1) = findmark(firstmark)
+        mark_top = ctx.base.lookup(stamp0, stamp1)
+        if not mark_top:
+            raise App400Error("not found: "+str(stamp0)+"."+str(stamp1))
+
+    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+    jsondict = ctx.create_jsondict()
+    jsondict["current_tag"] = "[ search results ]"
+    jsondict["val_search"] = query
+
+    mark = mark_top
+    markslist = []
+    while mark and len(markslist) < PAGESZ:
+        if mark.contains(query):
+            markslist.append(mark.to_jsondict(userpath))
+
+        mark = mark.succ()
+
+    mark_prev = search_back(mark_top, query)
+    jsondict.update({
+            "marks": markslist,
+            "href_page_prev": search_url_from_mark(mark_prev, query, userpath),
+            "href_page_this": search_url_from_mark(mark_top, query, userpath),
+            "href_page_next": search_url_from_mark(mark, query, userpath),
+            })
+    return [slasti.template.template_html_page.substitute(jsondict)]
+
 def login_form(start_response, ctx):
     username = ctx.user['name']
     userpath = ctx.prefix+'/'+username
@@ -576,6 +650,8 @@ def app(start_response, ctx):
         return full_mark_xml(start_response, ctx)
     if ctx.path == "tags":
         return full_tag_html(start_response, ctx)
+    if ctx.path == "search":
+        return full_search_html(start_response, ctx)
     if "/" in ctx.path:
         # Trick: by splitting with limit 2 we prevent users from poisoning
         # the tag with slashes. Not that it matters all that much, but still.

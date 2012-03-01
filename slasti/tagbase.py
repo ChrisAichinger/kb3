@@ -288,6 +288,20 @@ class TagMark:
         # maybe check here that TagMark returned with nonzero stamp0
         return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex-1)
 
+    def contains(self, string):
+        """Search text string in mark - return True if found, else False
+
+        Returns True if string is found within the bookmark (either within
+        title, url, notes, or within one of the tags).
+        If string is not found, False is returned.
+        """
+        string = string.lower()
+        return (string in self.title.lower() or
+                string in self.url.lower() or
+                string in self.note.lower() or
+                any(tag for tag in self.tags if string in tag.lower())
+               )
+
 #
 # TagMarkCursor is an iterator class.
 #
