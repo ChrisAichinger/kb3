@@ -410,7 +410,7 @@ template_html_body_bottom = Template("""
     [-]
 #end if
 #if ${href_page_next:-}
-    [<a href="$href_page_next">&laquo;</a>]
+    [<a href="$href_page_next">&raquo;</a>]
 #else
     [-]
 #end if
