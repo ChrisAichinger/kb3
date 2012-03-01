@@ -10,6 +10,7 @@ from __future__ import unicode_literals
 import time
 import urllib
 import urlparse
+import difflib
 import cgi
 import base64
 import os
@@ -500,10 +501,42 @@ def login_verify(ctx):
 
     return 1
 
+def find_similar_marks(href, ctx):
+    if not href:
+        return []
+    href = href.lower().strip()
+    user_parsed = urlparse.urlsplit(href)
+
+    candidates = []
+    mark = ctx.base.first()
+    while mark:
+        markurl = mark.url.lower()
+        if href == markurl:
+            # exact match
+            return [mark]
+
+        mark_parsed = urlparse.urlparse(markurl)
+        if user_parsed.netloc != mark_parsed.netloc:
+            # Different hosts - not our similar
+            mark = mark.succ()
+            continue
+
+        r = difflib.SequenceMatcher(None, href, markurl).quick_ratio()
+        if r > 0.8:
+            candidates.append((r, mark))
+
+        mark = mark.succ()
+
+    # Use sort key, otherwise we blow up if two ratios are equal
+    # (no compare operations defined for marks)
+    candidates = sorted(candidates, key=lambda elem: elem[0], reverse=True)
+    return [mark for ratio, mark in candidates]
+
 def new_form(start_response, ctx):
     userpath = ctx.prefix + '/' + ctx.user['name']
     title = ctx.get_query_arg('title')
     href = ctx.get_query_arg('href')
+    similar = find_similar_marks(href, ctx)
 
     jsondict = ctx.create_jsondict()
     jsondict.update({
@@ -516,6 +549,7 @@ def new_form(start_response, ctx):
             "action_edit": userpath + '/edit',
             "val_title": title,
             "val_href": href,
+            "similar_marks": [mark.to_jsondict(userpath) for mark in similar],
         })
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     return [slasti.template.template_html_editform.substitute(jsondict)]

@@ -562,6 +562,20 @@ template_html_editform = Template(
       (There is no undo.)
     </form>
     #end if
+
+    #if ${similar_marks:-}
+    <p>
+    Similar bookmarks:
+    <ul>
+    #for $mark in ${similar_marks}
+    <li>
+        ${mark.date} [<a href="${mark.href_mark}">&#9734;</a>]
+        <a href="${mark.href_mark_url}">${mark.title}</a>
+    </li>
+    #end for
+    </ul>
+    </p>
+    #end if
     """)
 
 # <posts user="zaitcev" update="2010-12-16T20:17:55Z" tag="" total="860">
