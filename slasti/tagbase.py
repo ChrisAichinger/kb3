@@ -53,23 +53,13 @@ def fs_decode_list(names):
         ret.append(fs_decode(s))
     return ret
 
-#
-
-def split_markstring(mark_str):
-    if not mark_str:
-        raise App400Error("no mark tag")
-    p = mark_str.split(".")
-    try:
-        stamp0 = int(p[0])
-        stamp1 = int(p[1])
-    except (ValueError, IndexError):
-        raise App400Error("bad mark format")
-    return (stamp0, stamp1)
+def make_keystring(timeint, fix):
+    return "%010d.%02d" % (timeint, fix)
 
 def split_marks(tagstr):
     tags = []
     for t in tagstr.split(' '):
-        if t != '':
+        if t:
             tags.append(t)
     return tags
 
@@ -250,7 +240,7 @@ class TagMark:
                          slasti.safestr(self.note), slasti.safestr(self.tags)])
 
     def key_str(self):
-        return "%d.%02d" % (self.stamp0, self.stamp1)
+        return make_keystring(self.stamp0, self.stamp1)
 
     def key(self):
         return (self.stamp0, self.stamp1)
@@ -259,14 +249,14 @@ class TagMark:
         return self.ourtag;
 
     def get_editpath(self, path_prefix):
-        return '%s/edit?mark=%d.%02d' % (path_prefix, self.stamp0, self.stamp1)
+        return '%s/edit?mark=%s' % (path_prefix, self.key_str())
 
     def to_jsondict(self, path_prefix):
         title = self.title
         if not title:
             title = self.url
 
-        mark_url = '%s/mark.%d.%02d' % (path_prefix, self.stamp0, self.stamp1)
+        mark_url = '%s/mark.%s' % (path_prefix, self.key_str())
         ts = time.gmtime(self.stamp0)
         jsondict = {
             "date": unicode(time.strftime("%Y-%m-%d", ts)),
@@ -277,7 +267,7 @@ class TagMark:
             "title": title,
             "note": self.note,
             "tags": [],
-            "key": "%d.%02d" % (self.stamp0, self.stamp1),
+            "key": self.key_str(),
         }
 
         tags_str = []
@@ -318,34 +308,6 @@ class TagMark:
                 any(tag for tag in self.tags if string in tag.lower())
                )
 
-#
-# TagMarkCursor is an iterator class.
-#
-class TagMarkCursor:
-    def __init__(self, base):
-        self.base = base
-        # Apparently Python does not provide opendir() and friends, so our
-        # cursor actually loads whole list in memory. As long as the whole
-        # HTML output is in memory too, there is no special concern.
-        # If we cared enough, we'd convert filenames to stamps right away,
-        # then sorted an array of integers. But we don't.
-        # Most likely we'll switch to a database back-end anyway.
-        self.dlist = os.listdir(base.markdir)
-        # Miraclously this sort() works as expected in presence of dot-fix.
-        self.dlist.sort()
-        self.dlist.reverse()
-        self.index = 0
-        self.length = len(self.dlist)
-
-    def next(self):
-        if self.index >= self.length:
-            raise StopIteration
-        mark = TagMark(self.base, None, self.dlist, self.index)
-        self.index += 1
-        return mark
-
-    # def __del__(self):
-    #     ......
 
 class TagTag:
     def __init__(self, base, taglist, tagindex):
@@ -363,24 +325,6 @@ class TagTag:
 
     def num(self):
         return self.nmark
-
-class TagTagCursor:
-    def __init__(self, base):
-        self.base = base
-        self.dlist = fs_decode_list(os.listdir(base.tagdir))
-        self.dlist.sort()
-        self.index = 0
-        self.length = len(self.dlist)
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self.index >= self.length:
-            raise StopIteration
-        tag = TagTag(self.base, self.dlist, self.index)
-        self.index += 1
-        return tag
 
 #
 # The open database (any back-end in theory, hardcoded to files for now)
@@ -515,57 +459,51 @@ class TagBase:
         # for normal website-entered content fix is usually zero
         fix = 0
         while 1:
-            stampkey = "%010d.%02d" % (timeint, fix)
-            # special-case full seconds to make directories a shade faster
-            if fix == 0:
-                markname = "%010d" % timeint
-            else:
-                markname = stampkey
-            if not os.path.exists(self.markdir + "/" + markname):
+            stampkey = make_keystring(timeint, fix)
+            if not os.path.exists(self.markdir + "/" + stampkey):
                 break
             fix += 1
             if fix >= 100:
                 return None
 
-        self.store(markname, stampkey, title, url, note, tags)
-        self.links_add(markname, tags)
-        return "%d.%02d" % (timeint, fix)
+        self.store(stampkey, stampkey, title, url, note, tags)
+        self.links_add(stampkey, tags)
+        return make_keystring(timeint, fix)
 
     # Edit a presumably existing tag.
     def edit1(self, mark, title, url, note, new_tags):
         timeint, fix = mark.key()
-        stampkey = "%010d.%02d" % (timeint, fix)
-        if fix == 0:
-            markname = "%010d" % timeint
-        else:
-            markname = stampkey
-        old_tags = read_tags(self.markdir, markname)
-        self.store(markname, stampkey, title, url, note, new_tags)
-        self.links_edit(markname, old_tags, new_tags)
+        stampkey = make_keystring(timeint, fix)
+        old_tags = read_tags(self.markdir, stampkey)
+        self.store(stampkey, stampkey, title, url, note, new_tags)
+        self.links_edit(stampkey, old_tags, new_tags)
 
     def delete(self, mark):
         timeint, fix = mark.key()
-        stampkey = "%010d.%02d" % (timeint, fix)
-        if fix == 0:
-            markname = "%010d" % timeint
-        else:
-            markname = stampkey
-        old_tags = read_tags(self.markdir, markname)
-        self.links_del(markname, old_tags)
+        stampkey = make_keystring(timeint, fix)
+        old_tags = read_tags(self.markdir, stampkey)
+        self.links_del(stampkey, old_tags)
         try:
-            os.unlink(self.markdir + "/" + markname)
+            os.unlink(self.markdir + "/" + stampkey)
         except IOError, e:
             raise AppError(str(e))
 
     def __iter__(self):
-        return TagMarkCursor(self)
+        dlist = sorted(os.listdir(self.markdir), reverse=True)
+        for index in range(len(dlist)):
+            yield TagMark(self, None, dlist, index)
 
     def lookup(self, mark_str):
-        timeint, fix = split_markstring(mark_str)
-        if fix == 0:
-            matchname = "%010d" % timeint
-        else:
-            matchname = "%010d.%02d" % (timeint, fix)
+        if not mark_str:
+            return None
+        p = mark_str.split(".")
+        try:
+            timeint = int(p[0])
+            fix = int(p[1])
+        except (ValueError, IndexError):
+            return None
+
+        matchname = make_keystring(timeint, fix)
 
         # Would be nice to cache the directory in TagBase somewhere.
         # Should we catch OSError here, incase of lookup on un-opened base?
@@ -585,10 +523,7 @@ class TagBase:
 
     def taglookup(self, tag, mark):
         timeint, fix = mark.key()
-        if fix == 0:
-                matchname = "%010d" % timeint
-        else:
-                matchname = "%010d.%02d" % (timeint, fix)
+        matchname = make_keystring(timeint, fix)
 
         dlist = split_marks(load_tag(self.tagdir, tag))
         dlist.sort()
@@ -607,4 +542,6 @@ class TagBase:
         return TagMark(self, tag, dlist, 0)
 
     def tagcurs(self):
-        return TagTagCursor(self)
+        dlist = sorted(fs_decode_list(os.listdir(self.tagdir)))
+        for index in range(len(dlist)):
+            yield TagTag(self, dlist, index)
