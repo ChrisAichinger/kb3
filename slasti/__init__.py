@@ -76,20 +76,18 @@ class Context:
         self._pinput_args = None
 
     def create_jsondict(self):
-        userpath = self.prefix+'/'+self.user['name']
-
         jsondict = {"name_user": self.user["name"],
-                    "href_user": userpath,
-                    "href_tags": "%s/tags" % userpath,
-                    "href_new": "%s/new" % userpath,
-                    "action_search": "%s/search" % userpath,
+                    "href_user": self.userpath,
+                    "href_tags": "%s/tags" % self.userpath,
+                    "href_new": "%s/new" % self.userpath,
+                    "action_search": "%s/search" % self.userpath,
                    }
         if self.flogin:
-            jsondict["href_export"]= userpath + '/export.xml'
+            jsondict["href_export"]= self.userpath + '/export.xml'
             jsondict["href_login"] = None
         else:
             jsondict["href_export"]= None
-            jsondict["href_login"] = "%s/login" % userpath
+            jsondict["href_login"] = "%s/login" % self.userpath
             if self.path and self.path != "login" and self.path != "edit":
                 jsondict["href_login"] += '?savedref=%s' % self.path
         return jsondict

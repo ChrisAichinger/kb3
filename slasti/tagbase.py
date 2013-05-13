@@ -8,9 +8,11 @@
 #  codecs
 #
 from __future__ import unicode_literals
+from __future__ import print_function
 
+ENC = "utf-8"
 import codecs
-utf8_writer = codecs.getwriter("utf-8")
+utf8_writer = codecs.getwriter(ENC)
 import os
 import errno
 import time
@@ -24,7 +26,7 @@ import slasti
 
 # A WSGI module running on Fedora 15 gets no LANG, so Python decides
 # that filesystem encoding is "ascii". This cannot be changed.
-# Then, an attempt to call open(basedir+"/"+tag) blows up with
+# Then, an attempt to call open(basedir + "/" + tag) blows up with
 # "UnicodeDecodeError: 'ascii' codec can't decode byte 0xe3 in posi...".
 # Manual encoding does not work, it still blows up even if argument is str.
 # The only way is to avoid UTF-8 filenames entirely.
@@ -36,7 +38,7 @@ def fs_decode(tag):
     # XXX try TypeError -- and then what?
     s = base64.b64decode(tag, b"+_")
     # XXX try UnicodeDecodeError -- and then what?
-    u = s.decode('utf-8')
+    u = s.decode(ENC)
     return u
 
 def fs_decode_list(names):
@@ -73,8 +75,8 @@ def split_marks(tagstr):
 
 def load_tag(tagdir, tag):
     try:
-        f = codecs.open(tagdir+"/"+fs_encode(tag), "r",
-                        encoding="utf-8", errors="replace")
+        f = codecs.open(tagdir + "/" + fs_encode(tag), "r",
+                        encoding=ENC, errors="replace")
     except IOError, e:
         f = None
     if f != None:
@@ -87,37 +89,37 @@ def load_tag(tagdir, tag):
 
 def read_tags(markdir, markname):
     try:
-        f = codecs.open(markdir+"/"+markname, "r",
-                        encoding="utf-8", errors="replace")
+        f = codecs.open(markdir + "/" + markname, "r",
+                        encoding=ENC, errors="replace")
     except IOError:
         return []
 
     # self-id: stamp1.stamp2
     s = f.readline()
-    if s == None or len(s) == 0:
+    if not s:
         f.close()
         return []
 
     # title (???)
     s = f.readline()
-    if s == None or len(s) == 0:
+    if not s:
         f.close()
         return []
 
     # url
     s = f.readline()
-    if s == None or len(s) == 0:
+    if not s:
         f.close()
         return []
 
     # note
     s = f.readline()
-    if s == None or len(s) == 0:
+    if not s:
         f.close()
         return []
 
     s = f.readline()
-    if s == None or len(s) == 0:
+    if not s:
         f.close()
         return []
     tags = split_marks(s.rstrip("\r\n"))
@@ -139,9 +141,9 @@ def difftags(old, new):
 
     joint = []
     for s in old:
-        joint.append([slasti.safestr(s),s,'-'])
+        joint.append([slasti.safestr(s), s, '-'])
     for s in new:
-        joint.append([slasti.safestr(s),s,'+'])
+        joint.append([slasti.safestr(s), s, ' +'])
 
     joint.sort(None, lambda t: t[0])
 
@@ -182,15 +184,15 @@ class TagMark:
         self.tags = []
 
         try:
-            f = codecs.open(base.markdir+"/"+markname, "r",
-                            encoding="utf-8", errors="replace")
+            f = codecs.open(base.markdir + "/" + markname, "r",
+                            encoding=ENC, errors="replace")
         except IOError:
             # Set a red tag to tell us where we crashed.
             self.stamp1 = 1
             return
 
         s = f.readline()
-        if s == None or len(s) == 0:
+        if not s:
             self.stamp1 = 2
             f.close()
             return
@@ -211,25 +213,25 @@ class TagMark:
             return
 
         s = f.readline()
-        if s == None or len(s) == 0:
+        if not s:
             f.close()
             return
         self.title = s.rstrip("\r\n")
 
         s = f.readline()
-        if s == None or len(s) == 0:
+        if not s:
             f.close()
             return
         self.url = s.rstrip("\r\n")
 
         s = f.readline()
-        if s == None or len(s) == 0:
+        if not s:
             f.close()
             return
         self.note = s.rstrip("\r\n")
 
         s = f.readline()
-        if s == None or len(s) == 0:
+        if not s:
             f.close()
             return
 
@@ -243,9 +245,9 @@ class TagMark:
     def __str__(self):
         # There do not seem to be any exceptions raised with weird inputs.
         datestr = time.strftime("%Y-%m-%d", time.gmtime(self.stamp0))
-        return self.ourlist[self.ourindex]+'|'+datestr+'|'+\
-               slasti.safestr(self.title)+'|'+self.url+'|'+\
-               slasti.safestr(self.note)+"|"+slasti.safestr(self.tags)
+        return '|'.join([self.ourlist[self.ourindex], datestr,
+                         slasti.safestr(self.title), self.url,
+                         slasti.safestr(self.note), slasti.safestr(self.tags)])
 
     def key_str(self):
         return "%d.%02d" % (self.stamp0, self.stamp1)
@@ -291,16 +293,16 @@ class TagMark:
         return jsondict
 
     def succ(self):
-        if self.ourindex+1 >= len(self.ourlist):
+        if self.ourindex + 1 >= len(self.ourlist):
             return None
         # maybe check here that TagMark returned with nonzero stamp0
-        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex+1)
+        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex + 1)
 
     def pred(self):
         if self.ourindex == 0:
             return None
         # maybe check here that TagMark returned with nonzero stamp0
-        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex-1)
+        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex - 1)
 
     def contains(self, string):
         """Search text string in mark - return True if found, else False
@@ -395,12 +397,12 @@ class TagBase:
         self.dirname = d
 
         if not os.path.exists(self.dirname):
-            raise AppError("Does not exist: "+self.dirname)
+            raise AppError("Does not exist: " + self.dirname)
         if not os.path.isdir(self.dirname):
-            raise AppError("Not a directory: "+self.dirname)
+            raise AppError("Not a directory: " + self.dirname)
 
-        self.tagdir = self.dirname+"/tags"
-        self.markdir = self.dirname+"/marks"
+        self.tagdir = self.dirname + "/tags"
+        self.markdir = self.dirname + "/marks"
 
     def open(self):
         try:
@@ -439,7 +441,7 @@ class TagBase:
     # Store the mark body
     def store(self, markname, stampkey, title, url, note, tags):
         try:
-            f = open(self.markdir+"/"+markname, "w+")
+            f = open(self.markdir + "/" + markname, "w+")
         except IOError, e:
             raise AppError(str(e))
 
@@ -448,20 +450,11 @@ class TagBase:
         f = utf8_writer(f)
 
         # We write the key into the file in case we ever decide to batch marks.
-        f.write(stampkey)
-        f.write("\n")
-
-        f.write(title)
-        f.write("\n")
-        f.write(url)
-        f.write("\n")
-        f.write(note)
-        f.write("\n")
-
-        for t in tags:
-            f.write(" ")
-            f.write(t)
-        f.write("\n")
+        print(stampkey, file=f)
+        print(title, file=f)
+        print(url, file=f)
+        print(note, file=f)
+        print(" " + " ".join(tags), file=f)
 
         f.close()
 
@@ -475,10 +468,10 @@ class TagBase:
             # but premature optimization is the root etc.
             if markname in split_marks(tagbuf):
                 continue
-            tagbuf = tagbuf+" "+markname
+            tagbuf = tagbuf + " " + markname
             # 3. Write
             try:
-                f = open(self.tagdir+"/"+fs_encode(t), "w")
+                f = open(self.tagdir + "/" + fs_encode(t), "w")
             except IOError, e:
                 continue
             f.write(tagbuf)
@@ -497,17 +490,17 @@ class TagBase:
             if len(mark_list) != 0:
                 tagbuf = " ".join(mark_list)
                 try:
-                    f = open(self.tagdir+"/"+fs_encode(t), "w")
+                    f = open(self.tagdir + "/" + fs_encode(t), "w")
                 except IOError, e:
                     continue
                 f.write(tagbuf)
                 f.close()
             else:
-                os.remove(self.tagdir+"/"+fs_encode(t))
+                os.remove(self.tagdir + "/" + fs_encode(t))
 
     def links_edit(self, markname, old_tags, new_tags):
         tags_drop, tags_add = difftags(old_tags, new_tags)
-        # f = open("/tmp/slasti.run","w")
+        # f = open("/tmp/slasti.run", "w")
         # print >>f, str(old_tags)
         # print >>f, str(new_tags)
         # print >>f, str(tags_drop)
@@ -528,7 +521,7 @@ class TagBase:
                 markname = "%010d" % timeint
             else:
                 markname = stampkey
-            if not os.path.exists(self.markdir+"/"+markname):
+            if not os.path.exists(self.markdir + "/" + markname):
                 break
             fix += 1
             if fix >= 100:
@@ -560,7 +553,7 @@ class TagBase:
         old_tags = read_tags(self.markdir, markname)
         self.links_del(markname, old_tags)
         try:
-            os.unlink(self.markdir+"/"+markname)
+            os.unlink(self.markdir + "/" + markname)
         except IOError, e:
             raise AppError(str(e))
 
@@ -570,9 +563,9 @@ class TagBase:
     def lookup(self, mark_str):
         timeint, fix = split_markstring(mark_str)
         if fix == 0:
-                matchname = "%010d" % timeint
+            matchname = "%010d" % timeint
         else:
-                matchname = "%010d.%02d" % (timeint, fix)
+            matchname = "%010d.%02d" % (timeint, fix)
 
         # Would be nice to cache the directory in TagBase somewhere.
         # Should we catch OSError here, incase of lookup on un-opened base?
@@ -586,7 +579,7 @@ class TagBase:
         dlist = os.listdir(self.markdir)
         dlist.sort()
         dlist.reverse()
-        if len(dlist) == 0:
+        if not dlist:
             return None
         return TagMark(self, None, dlist, 0)
 
@@ -600,7 +593,7 @@ class TagBase:
         dlist = split_marks(load_tag(self.tagdir, tag))
         dlist.sort()
         dlist.reverse()
-        if len(dlist) == 0:
+        if not dlist:
             return None
 
         return self.lookup_name(tag, dlist, matchname)
@@ -609,7 +602,7 @@ class TagBase:
         dlist = split_marks(load_tag(self.tagdir, tag))
         dlist.sort()
         dlist.reverse()
-        if len(dlist) == 0:
+        if not dlist:
             return None
         return TagMark(self, tag, dlist, 0)
 

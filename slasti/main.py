@@ -135,8 +135,6 @@ def page_tag_html(start_response, ctx, tag, mark_str):
     return page_any_html(start_response, ctx, mark)
 
 def page_empty_html(start_response, ctx):
-    username = ctx.user['name']
-
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
@@ -146,8 +144,6 @@ def page_empty_html(start_response, ctx):
     return [slasti.template.template_html_page.substitute(jsondict)]
 
 def delete_post(start_response, ctx):
-    path = ctx.prefix+'/'+ctx.user['name']
-
     ctx.base.delete(ctx.base.lookup(ctx.get_pinput_arg("mark")))
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -239,17 +235,15 @@ def mark_post(start_response, ctx, mark):
     return mark_get(start_response, ctx, new_mark)
 
 def mark_get(start_response, ctx, mark):
-    path = ctx.prefix+'/'+ctx.user['name']
-
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
-                "marks": [mark.to_jsondict(path)],
-                "href_edit": mark.get_editpath(path),
-                "href_page_prev": page_url_from_mark(mark.pred(), path),
-                "href_page_this": page_url_from_mark(mark, path),
-                "href_page_next": page_url_from_mark(mark.succ(), path),
-               })
+              "marks": [mark.to_jsondict(ctx.userpath)],
+              "href_edit": mark.get_editpath(ctx.userpath),
+              "href_page_prev": page_url_from_mark(mark.pred(), ctx.userpath),
+              "href_page_this": page_url_from_mark(mark, ctx.userpath),
+              "href_page_next": page_url_from_mark(mark.succ(), ctx.userpath),
+             })
     return [slasti.template.template_html_mark.substitute(jsondict)]
 
 def one_mark_html(start_response, ctx, mark_str):
@@ -298,7 +292,7 @@ def root_tag_html(start_response, ctx, tag):
     mark = ctx.base.tagfirst(tag)
     if mark == None:
         # Not sure if this may happen legitimately, so 404 for now.
-        raise App404Error("Tag page not found: "+tag)
+        raise App404Error("Tag page not found: " + tag)
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
     return page_any_html(start_response, ctx, mark)
@@ -380,19 +374,15 @@ def full_search_html(start_response, ctx):
     return [slasti.template.template_html_page.substitute(jsondict)]
 
 def login_form(start_response, ctx):
-    username = ctx.user['name']
-    savedref = ctx.get_query_arg("savedref")
-
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = {
-            "username": username,
+            "username": ctx.user['name'],
             "action_login": "%s/login" % ctx.userpath,
-            "savedref": savedref,
+            "savedref": ctx.get_query_arg("savedref"),
             }
     return [slasti.template.template_html_login.substitute(jsondict)]
 
 def login_post(start_response, ctx):
-    username = ctx.user['name']
 
     # pinput = "password=test&OK=Enter" and possibly a newline
     savedref = ctx.get_pinput_arg("savedref")
@@ -410,12 +400,12 @@ def login_post(start_response, ctx):
     # archive users or other pseudo-users. They cannot login, even if they
     # fake the login cookies.
     if not ctx.user.has_key('salt'):
-        raise AppError("User with no salt: "+username)
+        raise AppError("User with no salt: " + ctx.user["name"])
     if not ctx.user.has_key('pass'):
-        raise AppError("User with no password: "+username)
+        raise AppError("User with no password: " + ctx.user["name"])
 
     pwhash = hashlib.md5()
-    pwhash.update(ctx.user['salt']+password)
+    pwhash.update(ctx.user['salt'] + password)
     pwstr = pwhash.hexdigest()
 
     # We operate on a hex of the salted password's digest, to avoid parsing.
@@ -428,10 +418,10 @@ def login_post(start_response, ctx):
     csalt = base64.b64encode(os.urandom(6))
     flags = "-"
     nowstr = "%d" % int(time.time())
-    opdata = csalt+","+flags+","+nowstr
+    opdata = csalt + "," + flags + "," + nowstr
 
     coohash = hashlib.sha256()
-    coohash.update(ctx.user['pass']+opdata)
+    coohash.update(ctx.user['pass'] + opdata)
     # We use hex instead of base64 because it's easy to test in shell.
     mdstr = coohash.hexdigest()
 
@@ -473,7 +463,7 @@ def login_verify(ctx):
         return 0
 
     coohash = hashlib.sha256()
-    coohash.update(ctx.user['pass']+opdata)
+    coohash.update(ctx.user['pass'] + opdata)
     mdstr = coohash.hexdigest()
 
     if mdstr != xhash:
@@ -562,8 +552,6 @@ def edit_form(start_response, ctx):
 # The name edit_post() is a bit misleading, because POST to /edit is used
 # to create new marks, not to edit existing ones (see mark_post() for that).
 def edit_post(start_response, ctx):
-    username = ctx.user['name']
-
     argd = find_post_args(ctx)
     tags = tagbase.split_marks(argd['tags'])
 
@@ -669,17 +657,17 @@ def app(start_response, ctx):
             return root_tag_html(start_response, ctx, tag)
         p = page.split(".", 1)
         if len(p) != 2:
-            raise App404Error("Not found: "+ctx.path)
+            raise App404Error("Not found: " + ctx.path)
         if p[0] != "page":
-            raise App404Error("Not found: "+ctx.path)
+            raise App404Error("Not found: " + ctx.path)
         return page_tag_html(start_response, ctx, tag, p[1])
     else:
         p = ctx.path.split(".", 1)
         if len(p) != 2:
-            raise App404Error("Not found: "+ctx.path)
+            raise App404Error("Not found: " + ctx.path)
         mark_str = p[1]
         if p[0] == "mark":
             return one_mark_html(start_response, ctx, mark_str)
         if p[0] == "page":
             return page_mark_html(start_response, ctx, mark_str)
-        raise App404Error("Not found: "+ctx.path)
+        raise App404Error("Not found: " + ctx.path)
