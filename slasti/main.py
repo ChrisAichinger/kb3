@@ -98,13 +98,12 @@ def findmark(mark_str):
     return (stamp0, stamp1)
 
 def page_any_html(start_response, ctx, mark_top):
-    userpath = ctx.prefix+'/'+ctx.user['name']
     what = mark_top.tag()
 
     if what:
-        path = userpath + '/' + what
+        path = ctx.userpath + '/' + what
     else:
-        path = userpath
+        path = ctx.userpath
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
@@ -115,7 +114,7 @@ def page_any_html(start_response, ctx, mark_top):
     mark_next = None
     n = 0
     for n in range(PAGESZ):
-        jsondict["marks"].append(mark.to_jsondict(userpath))
+        jsondict["marks"].append(mark.to_jsondict(ctx.userpath))
 
         mark_next = mark.succ()
         if mark_next == None:
@@ -149,7 +148,6 @@ def page_tag_html(start_response, ctx, tag, stamp0, stamp1):
 
 def page_empty_html(start_response, ctx):
     username = ctx.user['name']
-    userpath = ctx.prefix+'/'+username
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
@@ -326,10 +324,9 @@ def full_mark_xml(start_response, ctx):
         raise AppGetError(ctx.method)
 
     start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
-    jsondict = { "marks": [] }
-    userpath = ctx.prefix+'/'+ctx.user['name']
+    jsondict = { "marks": [], "name_user": ctx.user['name'] }
     for mark in ctx.base:
-        jsondict["marks"].append(mark.to_jsondict(userpath))
+        jsondict["marks"].append(mark.to_jsondict(ctx.userpath))
 
     return [slasti.template.template_xml_export.substitute(jsondict)]
 
@@ -337,7 +334,6 @@ def full_tag_html(start_response, ctx):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
 
-    userpath = ctx.prefix + '/' + ctx.user['name']
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict["current_tag"] = "tags"
@@ -345,7 +341,8 @@ def full_tag_html(start_response, ctx):
     for tag in ctx.base.tagcurs():
         ref = tag.key()
         jsondict["tags"].append(
-            {"href_tag": '%s/%s/' % (userpath, slasti.escapeURLComponent(ref)),
+            {"href_tag": '%s/%s/' % (ctx.userpath,
+                                     slasti.escapeURLComponent(ref)),
              "name_tag": ref,
              "num_tagged": tag.num(),
             })
@@ -355,15 +352,14 @@ def full_search_html(start_response, ctx):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
 
-    userpath = ctx.prefix + '/' + ctx.user['name']
     query = ctx.get_query_arg('q')
     if not query:
         # If q is missing/empty (e.g. search for ""), redirect to homepage
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
-                            ('Location', slasti.safestr(userpath))]
+                            ('Location', slasti.safestr(ctx.userpath))]
         start_response("303 See Other", response_headers)
 
-        jsondict = { "href_redir": userpath }
+        jsondict = { "href_redir": ctx.userpath }
         return [slasti.template.template_html_redirect.substitute(jsondict)]
 
     firstmark = ctx.get_query_arg('firstmark')
@@ -384,43 +380,43 @@ def full_search_html(start_response, ctx):
     markslist = []
     while mark and len(markslist) < PAGESZ:
         if mark.contains(query):
-            markslist.append(mark.to_jsondict(userpath))
+            markslist.append(mark.to_jsondict(ctx.userpath))
 
         mark = mark.succ()
 
     mark_prev = search_back(mark_top, query)
     jsondict.update({
             "marks": markslist,
-            "href_page_prev": search_url_from_mark(mark_prev, query, userpath),
-            "href_page_this": search_url_from_mark(mark_top, query, userpath),
-            "href_page_next": search_url_from_mark(mark, query, userpath),
+            "href_page_prev": search_url_from_mark(mark_prev, query,
+                                                   ctx.userpath),
+            "href_page_this": search_url_from_mark(mark_top, query,
+                                                   ctx.userpath),
+            "href_page_next": search_url_from_mark(mark, query, ctx.userpath),
             })
     return [slasti.template.template_html_page.substitute(jsondict)]
 
 def login_form(start_response, ctx):
     username = ctx.user['name']
-    userpath = ctx.prefix+'/'+username
     savedref = ctx.get_query_arg("savedref")
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = {
             "username": username,
-            "action_login": "%s/login" % userpath,
+            "action_login": "%s/login" % ctx.userpath,
             "savedref": savedref,
             }
     return [slasti.template.template_html_login.substitute(jsondict)]
 
 def login_post(start_response, ctx):
     username = ctx.user['name']
-    userpath = ctx.prefix+'/'+username
 
     # pinput = "password=test&OK=Enter" and possibly a newline
     savedref = ctx.get_pinput_arg("savedref")
     if savedref:
         savedref = savedref.decode("utf-8", 'replace')
-        redihref = "%s/%s" % (userpath, savedref)
+        redihref = "%s/%s" % (ctx.userpath, savedref)
     else:
-        redihref = "%s/" % userpath;
+        redihref = "%s/" % ctx.userpath;
 
     password = ctx.get_pinput_arg("password")
     if not password:
@@ -533,7 +529,6 @@ def find_similar_marks(href, ctx):
     return [mark for ratio, mark in candidates]
 
 def new_form(start_response, ctx):
-    userpath = ctx.prefix + '/' + ctx.user['name']
     title = ctx.get_query_arg('title')
     href = ctx.get_query_arg('href')
     similar = find_similar_marks(href, ctx)
@@ -543,20 +538,18 @@ def new_form(start_response, ctx):
             "id_title": "title1",
             "id_button": "button1",
             "href_editjs": ctx.prefix + '/edit.js',
-            "href_fetch": userpath + '/fetchtitle',
+            "href_fetch": ctx.userpath + '/fetchtitle',
             "mark": None,
             "current_tag": "[" + WHITESTAR + "]",
-            "action_edit": userpath + '/edit',
+            "action_edit": ctx.userpath + '/edit',
             "val_title": title,
             "val_href": href,
-            "similar_marks": [mark.to_jsondict(userpath) for mark in similar],
+            "similar_marks": [m.to_jsondict(ctx.userpath) for m in similar],
         })
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     return [slasti.template.template_html_editform.substitute(jsondict)]
 
 def edit_form(start_response, ctx):
-    userpath = ctx.prefix + '/' + ctx.user['name']
-
     (stamp0, stamp1) = findmark(ctx.get_query_arg("mark"))
     mark = ctx.base.lookup(stamp0, stamp1)
     if not mark:
@@ -567,12 +560,12 @@ def edit_form(start_response, ctx):
         "id_title": "title1",
         "id_button": "button1",
         "href_editjs": ctx.prefix + '/edit.js',
-        "href_fetch": userpath + '/fetchtitle',
-        "mark": mark.to_jsondict(userpath),
+        "href_fetch": ctx.userpath + '/fetchtitle',
+        "mark": mark.to_jsondict(ctx.userpath),
         "current_tag": WHITESTAR,
-        "href_current_tag": '%s/mark.%d.%02d' % (userpath, stamp0, stamp1),
-        "action_edit": "%s/mark.%d.%02d" % (userpath, stamp0, stamp1),
-        "action_delete": userpath + '/delete',
+        "href_current_tag": '%s/mark.%d.%02d' % (ctx.userpath, stamp0, stamp1),
+        "action_edit": "%s/mark.%d.%02d" % (ctx.userpath, stamp0, stamp1),
+        "action_delete": ctx.userpath + '/delete',
         "val_title": mark.title,
         "val_href": mark.url,
         "val_tags": ' '.join(mark.tags),
@@ -586,7 +579,6 @@ def edit_form(start_response, ctx):
 # to create new marks, not to edit existing ones (see mark_post() for that).
 def edit_post(start_response, ctx):
     username = ctx.user['name']
-    userpath = ctx.prefix+'/'+username
 
     argd = find_post_args(ctx)
     tags = tagbase.split_marks(argd['tags'])
@@ -597,7 +589,7 @@ def edit_post(start_response, ctx):
     if stamp1 < 0:
         raise App404Error("Out of fix: %d" % stamp0)
 
-    redihref = '%s/mark.%d.%02d' % (userpath, stamp0, stamp1)
+    redihref = '%s/mark.%d.%02d' % (ctx.userpath, stamp0, stamp1)
 
     response_headers = [('Content-type', 'text/html; charset=utf-8')]
     response_headers.append(('Location', slasti.safestr(redihref)))
@@ -629,9 +621,8 @@ def fetch_title(start_response, ctx):
     raise AppGetError(ctx.method)
 
 def redirect_to_login(start_response, ctx):
-    userpath = ctx.prefix + '/' + ctx.user['name']
     thisref = ctx.path + '?' + urllib.quote_plus(ctx._query)
-    login_loc = userpath + '/login?savedref=' + thisref
+    login_loc = ctx.userpath + '/login?savedref=' + thisref
     response_headers = [('Content-type', 'text/html; charset=utf-8'),
                         ('Location', slasti.safestr(login_loc))]
     start_response("303 See Other", response_headers)

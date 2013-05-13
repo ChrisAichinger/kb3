@@ -70,6 +70,8 @@ class Context:
         # flogin: Login flag, to be derived from self.user and self.cookies.
         self.flogin = 0
 
+        self.userpath = self.prefix + '/' + self.user['name']
+
         self._query_args = None
         self._pinput_args = None
 
