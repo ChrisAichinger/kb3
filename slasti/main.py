@@ -45,8 +45,7 @@ def page_back(mark):
 def page_url_from_mark(mark, path):
     if mark is None:
         return None
-    (stamp0, stamp1) = mark.key()
-    return '%s/page.%d.%02d' % (path, stamp0, stamp1)
+    return '%s/page.%s' % (path, mark.key_str())
 
 def search_back(mark_top, query):
     mark = mark_top.pred()
@@ -72,9 +71,9 @@ def search_back(mark_top, query):
 def search_url_from_mark(mark, query, path):
     if mark is None:
         return None
-    (stamp0, stamp1) = mark.key()
+    mark_str = mark.key_str()
     query = slasti.escapeURLComponent(query)
-    return '%s/search?q=%s&firstmark=%d.%02d' % (path, query, stamp0, stamp1)
+    return '%s/search?q=%s&firstmark=%s' % (path, query, mark_str)
 
 def find_post_args(ctx):
     rdic = {}
@@ -85,17 +84,6 @@ def find_post_args(ctx):
         raise App400Error("The URL and tags are mandatory")
 
     return rdic
-
-def findmark(mark_str):
-    if not mark_str:
-        raise App400Error("no mark tag")
-    p = mark_str.split(".")
-    try:
-        stamp0 = int(p[0])
-        stamp1 = int(p[1])
-    except (ValueError, IndexError):
-        raise App400Error("bad mark format")
-    return (stamp0, stamp1)
 
 def page_any_html(start_response, ctx, mark_top):
     what = mark_top.tag()
@@ -128,20 +116,20 @@ def page_any_html(start_response, ctx, mark_top):
             })
     return [slasti.template.template_html_page.substitute(jsondict)]
 
-def page_mark_html(start_response, ctx, stamp0, stamp1):
-    mark = ctx.base.lookup(stamp0, stamp1)
+def page_mark_html(start_response, ctx, mark_str):
+    mark = ctx.base.lookup(mark_str)
     if mark == None:
         # We have to have at least one mark to display a page
-        raise App404Error("Page not found: "+str(stamp0)+"."+str(stamp1))
+        raise App404Error("Page not found: " + mark_str)
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
     return page_any_html(start_response, ctx, mark)
 
-def page_tag_html(start_response, ctx, tag, stamp0, stamp1):
-    mark = ctx.base.taglookup(tag, stamp0, stamp1)
+def page_tag_html(start_response, ctx, tag, mark_str):
+    mark = ctx.base.lookup(mark_str)
+    mark = ctx.base.taglookup(tag, mark)
     if mark == None:
-        raise App404Error("Tag page not found: "+tag+" / "+
-                           str(stamp0)+"."+str(stamp1))
+        raise App404Error("Tag page not found: " + tag + " / " + mark_str)
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
     return page_any_html(start_response, ctx, mark)
@@ -160,8 +148,7 @@ def page_empty_html(start_response, ctx):
 def delete_post(start_response, ctx):
     path = ctx.prefix+'/'+ctx.user['name']
 
-    (stamp0, stamp1) = findmark(ctx.get_pinput_arg("mark"))
-    ctx.base.delete(stamp0, stamp1);
+    ctx.base.delete(ctx.base.lookup(ctx.get_pinput_arg("mark")))
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
@@ -242,18 +229,16 @@ def mark_post(start_response, ctx, mark):
     argd = find_post_args(ctx)
 
     tags = tagbase.split_marks(argd['tags'])
-    (stamp0, stamp1) = mark.key()
-    ctx.base.edit1(stamp0, stamp1,
-                   argd['title'], argd['href'], argd['extra'], tags)
+    ctx.base.edit1(mark, argd['title'], argd['href'], argd['extra'], tags)
 
     # Since the URL stays the same, we eschew 303 here.
     # Just re-read the base entry with a lookup and pretend this was a GET.
-    mark = ctx.base.lookup(stamp0, stamp1)
-    if mark == None:
-        raise App404Error("Mark not found: "+str(stamp0)+"."+str(stamp1))
-    return mark_get(start_response, ctx, mark, stamp0)
+    new_mark = ctx.base.lookup(mark.key_str())
+    if new_mark == None:
+        raise App404Error("Mark not found: " + mark)
+    return mark_get(start_response, ctx, new_mark)
 
-def mark_get(start_response, ctx, mark, stamp0):
+def mark_get(start_response, ctx, mark):
     path = ctx.prefix+'/'+ctx.user['name']
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -267,12 +252,12 @@ def mark_get(start_response, ctx, mark, stamp0):
                })
     return [slasti.template.template_html_mark.substitute(jsondict)]
 
-def one_mark_html(start_response, ctx, stamp0, stamp1):
-    mark = ctx.base.lookup(stamp0, stamp1)
+def one_mark_html(start_response, ctx, mark_str):
+    mark = ctx.base.lookup(mark_str)
     if mark == None:
-        raise App404Error("Mark not found: "+str(stamp0)+"."+str(stamp1))
+        raise App404Error("Mark not found: " + mark_str)
     if ctx.method == 'GET':
-        return mark_get(start_response, ctx, mark, stamp0)
+        return mark_get(start_response, ctx, mark)
     if ctx.method == 'POST':
         if ctx.flogin == 0:
             raise AppLoginError()
@@ -366,10 +351,9 @@ def full_search_html(start_response, ctx):
     if not firstmark:
         mark_top = ctx.base.first()
     else:
-        (stamp0, stamp1) = findmark(firstmark)
-        mark_top = ctx.base.lookup(stamp0, stamp1)
+        mark_top = ctx.base.lookup(firstmark)
         if not mark_top:
-            raise App400Error("not found: "+str(stamp0)+"."+str(stamp1))
+            raise App400Error("not found: " + firstmark)
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
@@ -550,10 +534,10 @@ def new_form(start_response, ctx):
     return [slasti.template.template_html_editform.substitute(jsondict)]
 
 def edit_form(start_response, ctx):
-    (stamp0, stamp1) = findmark(ctx.get_query_arg("mark"))
-    mark = ctx.base.lookup(stamp0, stamp1)
+    mark_str = ctx.get_query_arg("mark")
+    mark = ctx.base.lookup(mark_str)
     if not mark:
-        raise App400Error("not found: "+str(stamp0)+"."+str(stamp1))
+        raise App400Error("not found: " + mark_str)
 
     jsondict = ctx.create_jsondict()
     jsondict.update({
@@ -563,8 +547,8 @@ def edit_form(start_response, ctx):
         "href_fetch": ctx.userpath + '/fetchtitle',
         "mark": mark.to_jsondict(ctx.userpath),
         "current_tag": WHITESTAR,
-        "href_current_tag": '%s/mark.%d.%02d' % (ctx.userpath, stamp0, stamp1),
-        "action_edit": "%s/mark.%d.%02d" % (ctx.userpath, stamp0, stamp1),
+        "href_current_tag": '%s/mark.%s' % (ctx.userpath, mark.key_str()),
+        "action_edit": "%s/mark.%s" % (ctx.userpath, mark.key_str()),
         "action_delete": ctx.userpath + '/delete',
         "val_title": mark.title,
         "val_href": mark.url,
@@ -583,13 +567,11 @@ def edit_post(start_response, ctx):
     argd = find_post_args(ctx)
     tags = tagbase.split_marks(argd['tags'])
 
-    stamp0 = int(time.time())
-    stamp1 = ctx.base.add1(stamp0,
-                           argd['title'], argd['href'], argd['extra'], tags)
-    if stamp1 < 0:
-        raise App404Error("Out of fix: %d" % stamp0)
+    mark_str = ctx.base.add1(argd['title'], argd['href'], argd['extra'], tags)
+    if not mark_str:
+        raise App404Error("Out of fix")
 
-    redihref = '%s/mark.%d.%02d' % (ctx.userpath, stamp0, stamp1)
+    redihref = '%s/mark.%s' % (ctx.userpath, mark_str)
 
     response_headers = [('Content-type', 'text/html; charset=utf-8')]
     response_headers.append(('Location', slasti.safestr(redihref)))
@@ -685,28 +667,19 @@ def app(start_response, ctx):
         page = p[1]
         if page == "":
             return root_tag_html(start_response, ctx, tag)
-        p = page.split(".")
-        if len(p) != 3:
+        p = page.split(".", 1)
+        if len(p) != 2:
             raise App404Error("Not found: "+ctx.path)
-        try:
-            stamp0 = int(p[1])
-            stamp1 = int(p[2])
-        except ValueError:
+        if p[0] != "page":
             raise App404Error("Not found: "+ctx.path)
-        if p[0] == "page":
-            return page_tag_html(start_response, ctx, tag, stamp0, stamp1)
-        raise App404Error("Not found: "+ctx.path)
+        return page_tag_html(start_response, ctx, tag, p[1])
     else:
-        p = ctx.path.split(".")
-        if len(p) != 3:
+        p = ctx.path.split(".", 1)
+        if len(p) != 2:
             raise App404Error("Not found: "+ctx.path)
-        try:
-            stamp0 = int(p[1])
-            stamp1 = int(p[2])
-        except ValueError:
-            raise App404Error("Not found: "+ctx.path)
+        mark_str = p[1]
         if p[0] == "mark":
-            return one_mark_html(start_response, ctx, stamp0, stamp1)
+            return one_mark_html(start_response, ctx, mark_str)
         if p[0] == "page":
-            return page_mark_html(start_response, ctx, stamp0, stamp1)
+            return page_mark_html(start_response, ctx, mark_str)
         raise App404Error("Not found: "+ctx.path)

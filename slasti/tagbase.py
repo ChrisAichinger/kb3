@@ -53,6 +53,17 @@ def fs_decode_list(names):
 
 #
 
+def split_markstring(mark_str):
+    if not mark_str:
+        raise App400Error("no mark tag")
+    p = mark_str.split(".")
+    try:
+        stamp0 = int(p[0])
+        stamp1 = int(p[1])
+    except (ValueError, IndexError):
+        raise App400Error("bad mark format")
+    return (stamp0, stamp1)
+
 def split_marks(tagstr):
     tags = []
     for t in tagstr.split(' '):
@@ -235,6 +246,9 @@ class TagMark:
         return self.ourlist[self.ourindex]+'|'+datestr+'|'+\
                slasti.safestr(self.title)+'|'+self.url+'|'+\
                slasti.safestr(self.note)+"|"+slasti.safestr(self.tags)
+
+    def key_str(self):
+        return "%d.%02d" % (self.stamp0, self.stamp1)
 
     def key(self):
         return (self.stamp0, self.stamp1)
@@ -503,8 +517,8 @@ class TagBase:
         self.links_add(markname, tags_add)
 
     # The add1 constructs key from UNIX seconds.
-    def add1(self, timeint, title, url, note, tags):
-
+    def add1(self, title, url, note, tags):
+        timeint = int(time.time())
         # for normal website-entered content fix is usually zero
         fix = 0
         while 1:
@@ -518,14 +532,15 @@ class TagBase:
                 break
             fix += 1
             if fix >= 100:
-                return -1
+                return None
 
         self.store(markname, stampkey, title, url, note, tags)
         self.links_add(markname, tags)
-        return fix
+        return "%d.%02d" % (timeint, fix)
 
     # Edit a presumably existing tag.
-    def edit1(self, timeint, fix, title, url, note, new_tags):
+    def edit1(self, mark, title, url, note, new_tags):
+        timeint, fix = mark.key()
         stampkey = "%010d.%02d" % (timeint, fix)
         if fix == 0:
             markname = "%010d" % timeint
@@ -535,7 +550,8 @@ class TagBase:
         self.store(markname, stampkey, title, url, note, new_tags)
         self.links_edit(markname, old_tags, new_tags)
 
-    def delete(self, timeint, fix):
+    def delete(self, mark):
+        timeint, fix = mark.key()
         stampkey = "%010d.%02d" % (timeint, fix)
         if fix == 0:
             markname = "%010d" % timeint
@@ -551,7 +567,8 @@ class TagBase:
     def __iter__(self):
         return TagMarkCursor(self)
 
-    def lookup(self, timeint, fix):
+    def lookup(self, mark_str):
+        timeint, fix = split_markstring(mark_str)
         if fix == 0:
                 matchname = "%010d" % timeint
         else:
@@ -573,7 +590,8 @@ class TagBase:
             return None
         return TagMark(self, None, dlist, 0)
 
-    def taglookup(self, tag, timeint, fix):
+    def taglookup(self, tag, mark):
+        timeint, fix = mark.key()
         if fix == 0:
                 matchname = "%010d" % timeint
         else:
