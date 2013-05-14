@@ -155,16 +155,15 @@ def difftags(old, new):
     return (minus, plus)
 
 class MarkHeader:
-    def __init__(self, base, fromtag, markname):
+    def __init__(self, base, markname):
         self.base = base
-        self.tag = fromtag
         self.name = markname
 
     def key_str(self):
         return self.name
 
     def get(self):
-        return TagMark(self.base, self.tag, self.name)
+        return TagMark(self.base, self.name)
 
     def __eq__(self, rhs):
         try:
@@ -180,9 +179,8 @@ class MarkHeader:
 # TagMark is one bookmark when we manipulate it (extracted from TagBase).
 #
 class TagMark:
-    def __init__(self, base, fromtag, markname):
+    def __init__(self, base, markname):
         self.base = base
-        self.tag = fromtag
         self.name = markname
 
         self.stamp0 = 0
@@ -503,22 +501,22 @@ class TagBase:
         matchname = make_keystring(timeint, fix)
         if matchname not in self._full_dlist():
             return None
-        return TagMark(self, None, matchname)
+        return TagMark(self, matchname)
 
     def get_headers(self, tag=None):
         dlist = self._full_dlist()
         for idx in range(len(dlist)):
-            yield MarkHeader(self, None, dlist[idx])
+            yield MarkHeader(self, dlist[idx])
 
     def get_marks(self, tag=None):
         dlist = self._full_dlist()
         for idx in range(len(dlist)):
-            yield TagMark(self, None, dlist[idx])
+            yield TagMark(self, dlist[idx])
 
     def get_tag_marks(self, tag):
         dlist = sorted(split_marks(load_tag(self.tagdir, tag)), reverse=True)
         for idx in range(len(dlist)):
-            yield TagMark(self, None, dlist[idx])
+            yield TagMark(self, dlist[idx])
 
     def get_tags(self):
         dlist = sorted(fs_decode_list(os.listdir(self.tagdir)))

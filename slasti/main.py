@@ -49,9 +49,8 @@ def page_url_from_mark(mark, path):
 def search_url_from_mark(mark, query, path):
     if mark is None:
         return None
-    mark_str = mark.key_str()
     query = slasti.escapeURLComponent(query)
-    return '%s/search?q=%s&firstmark=%s' % (path, query, mark_str)
+    return '%s/search?q=%s&firstmark=%s' % (path, query, mark.key_str())
 
 def find_post_args(ctx):
     rdic = {}
@@ -63,12 +62,9 @@ def find_post_args(ctx):
 
     return rdic
 
-def page_any_html(start_response, ctx, mark_top, mark_list, tag):
+def page_any_html(start_response, ctx, mark_top, mark_list, what,
+                  jsondict_extra, linkmaker):
     mark_list = list(mark_list)
-    if tag:
-        path = ctx.userpath + '/' + tag
-    else:
-        path = ctx.userpath
 
     index = mark_list.index(mark_top)
     if index <= 0:
@@ -82,39 +78,15 @@ def page_any_html(start_response, ctx, mark_top, mark_list, tag):
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
-            "current_tag": tag,
+            "current_tag": what,
             "marks": [m.to_jsondict(ctx.userpath) for m in output_marks],
-            })
 
-    jsondict.update({
-            "href_page_prev": page_url_from_mark(mark_prev, path),
-            "href_page_this": page_url_from_mark(mark_top, path),
-            "href_page_next": page_url_from_mark(mark_next, path),
+            "href_page_prev": linkmaker(mark_prev),
+            "href_page_this": linkmaker(mark_top),
+            "href_page_next": linkmaker(mark_next),
             })
+    jsondict.update(jsondict_extra)
     return [slasti.template.template_html_page.substitute(jsondict)]
-
-def page_mark_html(start_response, ctx, mark_str):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
-
-    marks = list(ctx.base.get_marks())
-    mark = tagbase.MarkHeader(ctx.base, None, mark_str)
-    if mark not in marks:
-        # We have to have at least one mark to display a page
-        raise App404Error("Page not found: " + mark_str)
-    mark = marks[marks.index(mark)]
-    return page_any_html(start_response, ctx, mark, marks, None)
-
-def page_tag_html(start_response, ctx, tag, mark_str):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
-
-    marks = list(ctx.base.get_tag_marks(tag))
-    mark = tagbase.MarkHeader(ctx.base, tag, mark_str)
-    if mark not in marks:
-        raise App404Error("Tag page not found: " + tag + " / " + mark_str)
-    mark = marks[marks.index(mark)]
-    return page_any_html(start_response, ctx, mark, marks, tag)
 
 def page_empty_html(start_response, ctx):
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -245,45 +217,48 @@ def one_mark_html(start_response, ctx, mark_str):
         return mark_post(start_response, ctx, mark)
     raise AppGetPostError(ctx.method)
 
-def root_mark_html(start_response, ctx):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
-    marks = list(ctx.base.get_marks())
-    if not marks:
-        return page_empty_html(start_response, ctx)
-    return page_any_html(start_response, ctx, marks[0], marks, None)
-    ## The non-paginated version
-    #
-    # response_headers = [('Content-type', 'text/html')]
-    # start_response("200 OK", response_headers)
-    # output = ["<html><body>\n"]
-    #
-    # left_lead = '  <h2 style="margin-bottom:0">'+\
-    #             '<a href="%s/">%s</a></h2>\n' % \
-    #             (ctx.path, ctx.user['name']))
-    # spit_lead(output, ctx, left_lead)
-    #
-    # for mark in base:
-    #     (stamp0, stamp1) = mark.key()
-    #     datestr = time.strftime("%Y-%m-%d", time.gmtime(stamp0))
-    #
-    #     output.append("<p>%s %s " % \
-    #                   (datestr, mark_anchor_html(mark, ctx.path, WHITESTAR)))
-    #     output.append(mark.html())
-    #     output.append("</p>\n")
-    #
-    # output.append("</body></html>\n")
-    # return output
-
-def root_tag_html(start_response, ctx, tag):
+def root_generic_html(start_response, ctx, tag):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
 
-    marks = list(ctx.base.get_tag_marks(tag))
+    if tag:
+        marks = list(ctx.base.get_tag_marks(tag))
+        path = ctx.userpath + '/' + tag
+    else:
+        marks = list(ctx.base.get_marks())
+        path = ctx.userpath
+
     if not marks:
-        # Not sure if this may happen legitimately, so 404 for now.
-        raise App404Error("Tag page not found: " + tag)
-    return page_any_html(start_response, ctx, marks[0], marks, tag)
+        if tag:
+            raise App404Error("Tag page not found: " + tag)
+        else:
+            return page_empty_html(start_response, ctx)
+
+    return page_any_html(
+            start_response, ctx, marks[0], marks, what=tag, jsondict_extra={},
+            linkmaker=lambda mark: page_url_from_mark(mark, path))
+
+def page_generic_html(start_response, ctx, mark_str, tag):
+    if ctx.method != 'GET':
+        raise AppGetError(ctx.method)
+
+    if tag:
+        marks = list(ctx.base.get_tag_marks(tag))
+        path = ctx.userpath + '/' + tag
+    else:
+        marks = list(ctx.base.get_marks())
+        path = ctx.userpath
+
+    mark = ctx.base.lookup(mark_str)
+    if mark not in marks:
+        if tag:
+            raise App404Error("Tag page not found: " + tag + " / " + mark_str)
+        else:
+            # We have to have at least one mark to display a page
+            raise App404Error("Page not found: " + mark_str)
+    return page_any_html(
+            start_response, ctx, mark, marks, what=tag, jsondict_extra={},
+            linkmaker=lambda mark: page_url_from_mark(mark, path))
 
 # full_mark_html() would be a Netscape bookmarks file, perhaps.
 def full_mark_xml(start_response, ctx):
@@ -329,40 +304,25 @@ def full_search_html(start_response, ctx):
         jsondict = { "href_redir": ctx.userpath }
         return [slasti.template.template_html_redirect.substitute(jsondict)]
 
-    marks = ctx.base.get_marks()
-    filtered_marks = [m for m in marks if m.contains(query)]
+    marks = [m for m in ctx.base.get_marks() if m.contains(query)]
 
-    index = 0
-    firstmark = ctx.get_query_arg('firstmark')
-    if firstmark:
-        index = [i for i, mark in enumerate(filtered_marks)
-                   if mark.key_str() == firstmark]
-        if not index:
-            raise App400Error("not found: " + firstmark)
-        index = index[0]
-
-    if index <= 0:
-        mark_prev = None
+    mark_str = ctx.get_query_arg('firstmark')
+    if mark_str:
+        mark = ctx.base.lookup(mark_str)
+        if not mark:
+            raise App404Error("Bookmark not found: " + mark_str)
+        if mark not in marks:
+            raise App404Error("Bookmark not in results list: " + mark_str)
     else:
-        mark_prev = filtered_marks[max(0, index - PAGESZ)]
-    mark_next = list_get_default(filtered_marks, index + PAGESZ, default=None)
+        mark = marks[0]
 
-    output_marks = filtered_marks[index : index + PAGESZ]
+    path = ctx.userpath
+    return page_any_html(
+            start_response, ctx, mark, marks,
+            what="[ search results ]",
+            jsondict_extra={ "val_search": query },
+            linkmaker=lambda mark: search_url_from_mark(mark, query, path))
 
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
-            "current_tag": "[ search results ]",
-            "val_search": query,
-            "marks": [m.to_jsondict(ctx.userpath) for m in output_marks],
-            "href_page_prev": search_url_from_mark(mark_prev, query,
-                                                   ctx.userpath),
-            "href_page_this": search_url_from_mark(filtered_marks[index], query,
-                                                   ctx.userpath),
-            "href_page_next": search_url_from_mark(mark_next, query,
-                                                   ctx.userpath),
-            })
-    return [slasti.template.template_html_page.substitute(jsondict)]
 
 def login_form(start_response, ctx):
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -625,7 +585,7 @@ def app(start_response, ctx):
             raise AppLoginError()
         return fetch_title(start_response, ctx)
     if ctx.path == "":
-        return root_mark_html(start_response, ctx)
+        return root_generic_html(start_response, ctx, tag=None)
     if ctx.path == "export.xml":
         if ctx.flogin == 0:
             raise AppLoginError()
@@ -641,13 +601,13 @@ def app(start_response, ctx):
         tag = p[0]
         page = p[1]
         if page == "":
-            return root_tag_html(start_response, ctx, tag)
+            return root_generic_html(start_response, ctx, tag)
         p = page.split(".", 1)
         if len(p) != 2:
             raise App404Error("Not found: " + ctx.path)
         if p[0] != "page":
             raise App404Error("Not found: " + ctx.path)
-        return page_tag_html(start_response, ctx, tag, p[1])
+        return page_generic_html(start_response, ctx, p[1], tag)
     else:
         p = ctx.path.split(".", 1)
         if len(p) != 2:
@@ -656,5 +616,5 @@ def app(start_response, ctx):
         if p[0] == "mark":
             return one_mark_html(start_response, ctx, mark_str)
         if p[0] == "page":
-            return page_mark_html(start_response, ctx, mark_str)
+            return page_generic_html(start_response, ctx, mark_str, tag=None)
         raise App404Error("Not found: " + ctx.path)
