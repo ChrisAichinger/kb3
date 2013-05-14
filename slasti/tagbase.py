@@ -154,17 +154,36 @@ def difftags(old, new):
 
     return (minus, plus)
 
+class MarkHeader:
+    def __init__(self, base, fromtag, markname):
+        self.base = base
+        self.tag = fromtag
+        self.name = markname
+
+    def key_str(self):
+        return self.name
+
+    def get(self):
+        return TagMark(self.base, self.tag, self.name)
+
+    def __eq__(self, rhs):
+        try:
+            return self.key_str() == rhs.key_str()
+        except Exception:
+            return False
+
+    def __neq__(self, rhs):
+        return not self == rhs
+
+
 #
 # TagMark is one bookmark when we manipulate it (extracted from TagBase).
 #
 class TagMark:
-    def __init__(self, base, fromtag, marklist, markindex):
-        markname = marklist[markindex]
-
+    def __init__(self, base, fromtag, markname):
         self.base = base
-        self.ourtag = fromtag
-        self.ourlist = marklist
-        self.ourindex = markindex
+        self.tag = fromtag
+        self.name = markname
 
         self.stamp0 = 0
         self.stamp1 = 0
@@ -174,7 +193,7 @@ class TagMark:
         self.tags = []
 
         try:
-            f = codecs.open(base.markdir + "/" + markname, "r",
+            f = codecs.open(base.markdir + "/" + self.name, "r",
                             encoding=ENC, errors="replace")
         except IOError:
             # Set a red tag to tell us where we crashed.
@@ -235,18 +254,27 @@ class TagMark:
     def __str__(self):
         # There do not seem to be any exceptions raised with weird inputs.
         datestr = time.strftime("%Y-%m-%d", time.gmtime(self.stamp0))
-        return '|'.join([self.ourlist[self.ourindex], datestr,
+        return '|'.join([self.name, datestr,
                          slasti.safestr(self.title), self.url,
                          slasti.safestr(self.note), slasti.safestr(self.tags)])
+
+    def __eq__(self, rhs):
+        try:
+            return self.key_str() == rhs.key_str()
+        except Exception:
+            return False
+
+    def __neq__(self, rhs):
+        return not self == rhs
+
+    def get(self):
+        return self
 
     def key_str(self):
         return make_keystring(self.stamp0, self.stamp1)
 
     def key(self):
         return (self.stamp0, self.stamp1)
-
-    def tag(self):
-        return self.ourtag;
 
     def get_editpath(self, path_prefix):
         return '%s/edit?mark=%s' % (path_prefix, self.key_str())
@@ -282,18 +310,6 @@ class TagMark:
 
         return jsondict
 
-    def succ(self):
-        if self.ourindex + 1 >= len(self.ourlist):
-            return None
-        # maybe check here that TagMark returned with nonzero stamp0
-        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex + 1)
-
-    def pred(self):
-        if self.ourindex == 0:
-            return None
-        # maybe check here that TagMark returned with nonzero stamp0
-        return TagMark(self.base, self.ourtag, self.ourlist, self.ourindex - 1)
-
     def contains(self, string):
         """Search text string in mark - return True if found, else False
 
@@ -312,16 +328,15 @@ class TagMark:
 class TagTag:
     def __init__(self, base, taglist, tagindex):
         self.base = base
-        self.ourlist = taglist
-        self.ourindex = tagindex
+        self.name = taglist[tagindex]
 
         self.nmark = len(split_marks(load_tag(base.tagdir, taglist[tagindex])))
 
     def __str__(self):
-        return self.ourlist[self.ourindex]
+        return self.name
 
     def key(self):
-        return self.ourlist[self.ourindex]
+        return self.name
 
     def num(self):
         return self.nmark
@@ -362,22 +377,6 @@ class TagBase:
 
     def close(self):
         pass
-
-    def lookup_name(self, tag, dlist, matchname):
-        ## The antipythonic roll-my-own way:
-        # matchindex = 0
-        # while matchindex < len(dlist):
-        #     if dlist[matchindex] == matchname:
-        #         break
-        #     matchindex += 1
-        # if matchindex == len(dlist):
-        #     return None
-        ## A more pytonic way:
-        try:
-            matchindex = dlist.index(matchname)
-        except ValueError:
-            return None
-        return TagMark(self, tag, dlist, matchindex)
 
     #
     # XXX Add locking for consistency of concurrent updates
@@ -472,7 +471,7 @@ class TagBase:
 
     # Edit a presumably existing tag.
     def edit1(self, mark, title, url, note, new_tags):
-        timeint, fix = mark.key()
+        timeint, fix = mark.key_str()
         stampkey = make_keystring(timeint, fix)
         old_tags = read_tags(self.markdir, stampkey)
         self.store(stampkey, stampkey, title, url, note, new_tags)
@@ -488,14 +487,12 @@ class TagBase:
         except IOError, e:
             raise AppError(str(e))
 
-    def __iter__(self):
-        dlist = sorted(os.listdir(self.markdir), reverse=True)
-        for index in range(len(dlist)):
-            yield TagMark(self, None, dlist, index)
+    def _full_dlist(self):
+        # Would be nice to cache the directory in TagBase somewhere.
+        # Should we catch OSError here, incase of lookup on un-opened base?
+        return sorted(os.listdir(self.markdir), reverse=True)
 
     def lookup(self, mark_str):
-        if not mark_str:
-            return None
         p = mark_str.split(".")
         try:
             timeint = int(p[0])
@@ -504,44 +501,26 @@ class TagBase:
             return None
 
         matchname = make_keystring(timeint, fix)
-
-        # Would be nice to cache the directory in TagBase somewhere.
-        # Should we catch OSError here, incase of lookup on un-opened base?
-        dlist = os.listdir(self.markdir)
-        dlist.sort()
-        dlist.reverse()
-
-        return self.lookup_name(None, dlist, matchname)
-
-    def first(self):
-        dlist = os.listdir(self.markdir)
-        dlist.sort()
-        dlist.reverse()
-        if not dlist:
+        if matchname not in self._full_dlist():
             return None
-        return TagMark(self, None, dlist, 0)
+        return TagMark(self, None, matchname)
 
-    def taglookup(self, tag, mark):
-        timeint, fix = mark.key()
-        matchname = make_keystring(timeint, fix)
+    def get_headers(self, tag=None):
+        dlist = self._full_dlist()
+        for idx in range(len(dlist)):
+            yield MarkHeader(self, None, dlist[idx])
 
-        dlist = split_marks(load_tag(self.tagdir, tag))
-        dlist.sort()
-        dlist.reverse()
-        if not dlist:
-            return None
+    def get_marks(self, tag=None):
+        dlist = self._full_dlist()
+        for idx in range(len(dlist)):
+            yield TagMark(self, None, dlist[idx])
 
-        return self.lookup_name(tag, dlist, matchname)
+    def get_tag_marks(self, tag):
+        dlist = sorted(split_marks(load_tag(self.tagdir, tag)), reverse=True)
+        for idx in range(len(dlist)):
+            yield TagMark(self, None, dlist[idx])
 
-    def tagfirst(self, tag):
-        dlist = split_marks(load_tag(self.tagdir, tag))
-        dlist.sort()
-        dlist.reverse()
-        if not dlist:
-            return None
-        return TagMark(self, tag, dlist, 0)
-
-    def tagcurs(self):
+    def get_tags(self):
         dlist = sorted(fs_decode_list(os.listdir(self.tagdir)))
         for index in range(len(dlist)):
             yield TagTag(self, dlist, index)

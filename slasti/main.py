@@ -28,45 +28,23 @@ import slasti.template
 PAGESZ = 25
 WHITESTAR = "\u2606"
 
-def page_back(mark):
-    mark = mark.pred()
-    if mark == None:
+def list_get_default(lst, index, default=None):
+    if index < 0:
+        return default
+    try:
+        return lst[index]
+    except IndexError:
+        return default
+
+def mark_url_from_mark(mark, path):
+    if mark is None:
         return None
-    # In all other cases, we'll return something, even if 1 entry back.
-    n = 1
-    while n < PAGESZ:
-        m = mark.pred()
-        if m == None:
-            return mark
-        mark = m
-        n += 1
-    return mark
+    return '%s/mark.%s' % (path, mark.key_str())
 
 def page_url_from_mark(mark, path):
     if mark is None:
         return None
     return '%s/page.%s' % (path, mark.key_str())
-
-def search_back(mark_top, query):
-    mark = mark_top.pred()
-    if not mark:
-        return None
-    n = 0
-    while True:
-        # Search for PAGESZ+1 matches, then call call succ() on the first one.
-        # This avoids showing the "previous page" link on the first page when
-        # doing a search, clicking ">> next page", followed by "<< prev page".
-        # Otherwise we'd show a previous page button, even if there's no
-        # matches in earlier bookmarks.
-        if mark.contains(query):
-            n += 1
-        if n > PAGESZ:
-            return mark.succ()
-
-        mark_pred = mark.pred()
-        if not mark_pred:
-            return mark
-        mark = mark_pred
 
 def search_url_from_mark(mark, query, path):
     if mark is None:
@@ -85,54 +63,58 @@ def find_post_args(ctx):
 
     return rdic
 
-def page_any_html(start_response, ctx, mark_top):
-    what = mark_top.tag()
-
-    if what:
-        path = ctx.userpath + '/' + what
+def page_any_html(start_response, ctx, mark_top, mark_list, tag):
+    mark_list = list(mark_list)
+    if tag:
+        path = ctx.userpath + '/' + tag
     else:
         path = ctx.userpath
 
+    index = mark_list.index(mark_top)
+    if index <= 0:
+        mark_prev = None
+    else:
+        mark_prev = mark_list[max(0, index - PAGESZ)]
+    mark_next = list_get_default(mark_list, index + PAGESZ, default=None)
+
+    output_marks = mark_list[index : index + PAGESZ]
+
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
-    jsondict["current_tag"] = what
-    jsondict["marks"] = []
-
-    mark = mark_top
-    mark_next = None
-    n = 0
-    for n in range(PAGESZ):
-        jsondict["marks"].append(mark.to_jsondict(ctx.userpath))
-
-        mark_next = mark.succ()
-        if mark_next == None:
-            break
-        mark = mark_next
+    jsondict.update({
+            "current_tag": tag,
+            "marks": [m.to_jsondict(ctx.userpath) for m in output_marks],
+            })
 
     jsondict.update({
-            "href_page_prev": page_url_from_mark(page_back(mark_top), path),
+            "href_page_prev": page_url_from_mark(mark_prev, path),
             "href_page_this": page_url_from_mark(mark_top, path),
             "href_page_next": page_url_from_mark(mark_next, path),
             })
     return [slasti.template.template_html_page.substitute(jsondict)]
 
 def page_mark_html(start_response, ctx, mark_str):
-    mark = ctx.base.lookup(mark_str)
-    if mark == None:
+    if ctx.method != 'GET':
+        raise AppGetError(ctx.method)
+
+    marks = list(ctx.base.get_marks())
+    mark = tagbase.MarkHeader(ctx.base, None, mark_str)
+    if mark not in marks:
         # We have to have at least one mark to display a page
         raise App404Error("Page not found: " + mark_str)
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
-    return page_any_html(start_response, ctx, mark)
+    mark = marks[marks.index(mark)]
+    return page_any_html(start_response, ctx, mark, marks, None)
 
 def page_tag_html(start_response, ctx, tag, mark_str):
-    mark = ctx.base.lookup(mark_str)
-    mark = ctx.base.taglookup(tag, mark)
-    if mark == None:
-        raise App404Error("Tag page not found: " + tag + " / " + mark_str)
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
-    return page_any_html(start_response, ctx, mark)
+
+    marks = list(ctx.base.get_tag_marks(tag))
+    mark = tagbase.MarkHeader(ctx.base, tag, mark_str)
+    if mark not in marks:
+        raise App404Error("Tag page not found: " + tag + " / " + mark_str)
+    mark = marks[marks.index(mark)]
+    return page_any_html(start_response, ctx, mark, marks, tag)
 
 def page_empty_html(start_response, ctx):
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -235,14 +217,19 @@ def mark_post(start_response, ctx, mark):
     return mark_get(start_response, ctx, new_mark)
 
 def mark_get(start_response, ctx, mark):
+    headers = list(ctx.base.get_headers())
+    index = headers.index(mark)
+    mark_prev = list_get_default(headers, index - 1, default=None)
+    mark_next = list_get_default(headers, index + 1, default=None)
+
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
     jsondict.update({
               "marks": [mark.to_jsondict(ctx.userpath)],
               "href_edit": mark.get_editpath(ctx.userpath),
-              "href_page_prev": page_url_from_mark(mark.pred(), ctx.userpath),
-              "href_page_this": page_url_from_mark(mark, ctx.userpath),
-              "href_page_next": page_url_from_mark(mark.succ(), ctx.userpath),
+              "href_page_prev": mark_url_from_mark(mark_prev, ctx.userpath),
+              "href_page_this": mark_url_from_mark(mark, ctx.userpath),
+              "href_page_next": mark_url_from_mark(mark_next, ctx.userpath),
              })
     return [slasti.template.template_html_mark.substitute(jsondict)]
 
@@ -261,10 +248,10 @@ def one_mark_html(start_response, ctx, mark_str):
 def root_mark_html(start_response, ctx):
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
-    mark = ctx.base.first()
-    if mark == None:
+    marks = list(ctx.base.get_marks())
+    if not marks:
         return page_empty_html(start_response, ctx)
-    return page_any_html(start_response, ctx, mark)
+    return page_any_html(start_response, ctx, marks[0], marks, None)
     ## The non-paginated version
     #
     # response_headers = [('Content-type', 'text/html')]
@@ -289,13 +276,14 @@ def root_mark_html(start_response, ctx):
     # return output
 
 def root_tag_html(start_response, ctx, tag):
-    mark = ctx.base.tagfirst(tag)
-    if mark == None:
-        # Not sure if this may happen legitimately, so 404 for now.
-        raise App404Error("Tag page not found: " + tag)
     if ctx.method != 'GET':
         raise AppGetError(ctx.method)
-    return page_any_html(start_response, ctx, mark)
+
+    marks = list(ctx.base.get_tag_marks(tag))
+    if not marks:
+        # Not sure if this may happen legitimately, so 404 for now.
+        raise App404Error("Tag page not found: " + tag)
+    return page_any_html(start_response, ctx, marks[0], marks, tag)
 
 # full_mark_html() would be a Netscape bookmarks file, perhaps.
 def full_mark_xml(start_response, ctx):
@@ -304,7 +292,7 @@ def full_mark_xml(start_response, ctx):
 
     start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
     jsondict = { "marks": [], "name_user": ctx.user['name'] }
-    for mark in ctx.base:
+    for mark in ctx.base.get_marks():
         jsondict["marks"].append(mark.to_jsondict(ctx.userpath))
 
     return [slasti.template.template_xml_export.substitute(jsondict)]
@@ -317,7 +305,7 @@ def full_tag_html(start_response, ctx):
     jsondict = ctx.create_jsondict()
     jsondict["current_tag"] = "tags"
     jsondict["tags"] = []
-    for tag in ctx.base.tagcurs():
+    for tag in ctx.base.get_tags():
         ref = tag.key()
         jsondict["tags"].append(
             {"href_tag": '%s/%s/' % (ctx.userpath,
@@ -341,35 +329,38 @@ def full_search_html(start_response, ctx):
         jsondict = { "href_redir": ctx.userpath }
         return [slasti.template.template_html_redirect.substitute(jsondict)]
 
+    marks = ctx.base.get_marks()
+    filtered_marks = [m for m in marks if m.contains(query)]
+
+    index = 0
     firstmark = ctx.get_query_arg('firstmark')
-    if not firstmark:
-        mark_top = ctx.base.first()
-    else:
-        mark_top = ctx.base.lookup(firstmark)
-        if not mark_top:
+    if firstmark:
+        index = [i for i, mark in enumerate(filtered_marks)
+                   if mark.key_str() == firstmark]
+        if not index:
             raise App400Error("not found: " + firstmark)
+        index = index[0]
+
+    if index <= 0:
+        mark_prev = None
+    else:
+        mark_prev = filtered_marks[max(0, index - PAGESZ)]
+    mark_next = list_get_default(filtered_marks, index + PAGESZ, default=None)
+
+    output_marks = filtered_marks[index : index + PAGESZ]
 
     start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
     jsondict = ctx.create_jsondict()
-    jsondict["current_tag"] = "[ search results ]"
-    jsondict["val_search"] = query
-
-    mark = mark_top
-    markslist = []
-    while mark and len(markslist) < PAGESZ:
-        if mark.contains(query):
-            markslist.append(mark.to_jsondict(ctx.userpath))
-
-        mark = mark.succ()
-
-    mark_prev = search_back(mark_top, query)
     jsondict.update({
-            "marks": markslist,
+            "current_tag": "[ search results ]",
+            "val_search": query,
+            "marks": [m.to_jsondict(ctx.userpath) for m in output_marks],
             "href_page_prev": search_url_from_mark(mark_prev, query,
                                                    ctx.userpath),
-            "href_page_this": search_url_from_mark(mark_top, query,
+            "href_page_this": search_url_from_mark(filtered_marks[index], query,
                                                    ctx.userpath),
-            "href_page_next": search_url_from_mark(mark, query, ctx.userpath),
+            "href_page_next": search_url_from_mark(mark_next, query,
+                                                   ctx.userpath),
             })
     return [slasti.template.template_html_page.substitute(jsondict)]
 
@@ -478,8 +469,7 @@ def find_similar_marks(href, ctx):
     user_parsed = urlparse.urlsplit(href)
 
     candidates = []
-    mark = ctx.base.first()
-    while mark:
+    for mark in ctx.base.get_marks():
         markurl = mark.url.lower()
         if href == markurl:
             # exact match
@@ -488,14 +478,11 @@ def find_similar_marks(href, ctx):
         mark_parsed = urlparse.urlparse(markurl)
         if user_parsed.netloc != mark_parsed.netloc:
             # Different hosts - not our similar
-            mark = mark.succ()
             continue
 
         r = difflib.SequenceMatcher(None, href, markurl).quick_ratio()
         if r > 0.8:
             candidates.append((r, mark))
-
-        mark = mark.succ()
 
     # Use sort key, otherwise we blow up if two ratios are equal
     # (no compare operations defined for marks)
