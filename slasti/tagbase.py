@@ -35,7 +35,7 @@ class DBMark:
         self.url = from_dict["url"]
         self.note = from_dict["note"]
         self.tags = from_dict["tags"]
-        self.timestamp = from_dict["time"]
+        self.time = from_dict["time"]
 
     def __eq__(self, rhs):
         try:
@@ -49,16 +49,13 @@ class DBMark:
     def key_str(self):
         return str(self.id)
 
-    def get_editpath(self, path_prefix):
-        return '%s/edit?mark=%s' % (path_prefix, self.key_str())
-
     def to_jsondict(self, path_prefix):
         title = self.title
         if not title:
             title = self.url
 
         mark_url = '%s/mark.%s' % (path_prefix, self.key_str())
-        ts = time.gmtime(self.timestamp)
+        ts = time.gmtime(self.time)
         jsondict = {
             "date": unicode(time.strftime("%Y-%m-%d", ts)),
             "xmldate": unicode(time.strftime("%Y-%m-%dT%H:%M:%SZ", ts)),
@@ -140,9 +137,6 @@ class SlastiDB:
             );
         """)
 
-    def open(self): pass
-    def close(self): pass
-
     def add1(self, title, url, note, tags):
         return self.insert(DBMark(from_dict={"mark_id": None,
                                              "title": title,
@@ -163,7 +157,7 @@ class SlastiDB:
         cur = self.dbconn.cursor()
         cur.execute("""INSERT INTO marks(time, title, url, note)
                               VALUES (?, ?, ?, ?);""",
-                    (mark.timestamp, mark.title, mark.url, mark.note))
+                    (mark.time, mark.title, mark.url, mark.note))
         m_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
         for tag in mark.tags:
             tag = tag.strip()
@@ -180,7 +174,7 @@ class SlastiDB:
         cur = self.dbconn.cursor()
         cur.execute("""UPDATE marks SET time = ?, title = ?, url = ?, note = ?
                               WHERE mark_id = ?;""",
-                    (mark.timestamp, mark.title, mark.url, mark.note, mark.id))
+                    (mark.time, mark.title, mark.url, mark.note, mark.id))
 
         cur.execute("""DELETE FROM mark_tags WHERE mark_id = ?;""", (mark.id,))
         for tag in mark.tags:

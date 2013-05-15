@@ -36,17 +36,22 @@ def list_get_default(lst, index, default=None):
     except IndexError:
         return default
 
-def mark_url_from_mark(mark, path):
+def url_mark_edit(mark, path):
+    if mark is None:
+        return None
+    return '%s/edit?mark=%s' % (path, mark.key_str())
+
+def url_mark(mark, path):
     if mark is None:
         return None
     return '%s/mark.%s' % (path, mark.key_str())
 
-def page_url_from_mark(mark, path):
+def url_page(mark, path):
     if mark is None:
         return None
     return '%s/page.%s' % (path, mark.key_str())
 
-def search_url_from_mark(mark, query, path):
+def url_search(mark, query, path):
     if mark is None:
         return None
     query = slasti.escapeURLComponent(query)
@@ -183,7 +188,7 @@ def mark_post(start_response, ctx, mark):
 
     # Since the URL stays the same, we eschew 303 here.
     # Just re-read the base entry with a lookup and pretend this was a GET.
-    new_mark = ctx.base.lookup(mark.key_str())
+    new_mark = ctx.base.lookup(mark.id)
     if new_mark == None:
         raise App404Error("Mark not found: " + mark)
     return mark_get(start_response, ctx, new_mark)
@@ -198,10 +203,10 @@ def mark_get(start_response, ctx, mark):
     jsondict = ctx.create_jsondict()
     jsondict.update({
               "marks": [mark.to_jsondict(ctx.userpath)],
-              "href_edit": mark.get_editpath(ctx.userpath),
-              "href_page_prev": mark_url_from_mark(mark_prev, ctx.userpath),
-              "href_page_this": mark_url_from_mark(mark, ctx.userpath),
-              "href_page_next": mark_url_from_mark(mark_next, ctx.userpath),
+              "href_edit": url_mark_edit(mark, ctx.userpath),
+              "href_page_prev": url_mark(mark_prev, ctx.userpath),
+              "href_page_this": url_mark(mark, ctx.userpath),
+              "href_page_next": url_mark(mark_next, ctx.userpath),
              })
     return [slasti.template.template_html_mark.substitute(jsondict)]
 
@@ -236,7 +241,7 @@ def root_generic_html(start_response, ctx, tag):
 
     return page_any_html(
             start_response, ctx, marks[0], marks, what=tag, jsondict_extra={},
-            linkmaker=lambda mark: page_url_from_mark(mark, path))
+            linkmaker=lambda mark: url_page(mark, path))
 
 def page_generic_html(start_response, ctx, mark_str, tag):
     if ctx.method != 'GET':
@@ -258,7 +263,7 @@ def page_generic_html(start_response, ctx, mark_str, tag):
             raise App404Error("Page not found: " + mark_str)
     return page_any_html(
             start_response, ctx, mark, marks, what=tag, jsondict_extra={},
-            linkmaker=lambda mark: page_url_from_mark(mark, path))
+            linkmaker=lambda mark: url_page(mark, path))
 
 # full_mark_html() would be a Netscape bookmarks file, perhaps.
 def full_mark_xml(start_response, ctx):
@@ -320,7 +325,7 @@ def full_search_html(start_response, ctx):
             start_response, ctx, mark, marks,
             what="[ search results ]",
             jsondict_extra={ "val_search": query },
-            linkmaker=lambda mark: search_url_from_mark(mark, query, path))
+            linkmaker=lambda mark: url_search(mark, query, path))
 
 
 def login_form(start_response, ctx):
@@ -483,8 +488,8 @@ def edit_form(start_response, ctx):
         "href_fetch": ctx.userpath + '/fetchtitle',
         "mark": mark.to_jsondict(ctx.userpath),
         "current_tag": WHITESTAR,
-        "href_current_tag": '%s/mark.%s' % (ctx.userpath, mark.key_str()),
-        "action_edit": "%s/mark.%s" % (ctx.userpath, mark.key_str()),
+        "href_current_tag": url_mark(mark, ctx.userpath),
+        "action_edit": url_mark(mark, ctx.userpath),
         "action_delete": ctx.userpath + '/delete',
         "val_title": mark.title,
         "val_href": mark.url,
