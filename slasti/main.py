@@ -281,12 +281,11 @@ def full_tag_html(start_response, ctx):
     jsondict["current_tag"] = "tags"
     jsondict["tags"] = []
     for tag in ctx.base.get_tags():
-        ref = tag.key()
         jsondict["tags"].append(
             {"href_tag": '%s/%s/' % (ctx.userpath,
-                                     slasti.escapeURLComponent(ref)),
-             "name_tag": ref,
-             "num_tagged": tag.num(),
+                                     slasti.escapeURLComponent(tag.name)),
+             "name_tag": tag.name,
+             "num_tagged": tag.num_marks,
             })
     return [slasti.template.template_html_tags.substitute(jsondict)]
 

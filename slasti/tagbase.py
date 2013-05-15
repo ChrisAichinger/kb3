@@ -183,7 +183,7 @@ class TagMark:
         self.base = base
         self.name = markname
 
-        self.stamp0 = 0
+        self.timestamp = self.stamp0 = 0
         self.stamp1 = 0
         self.title = "-"
         self.url = "-"
@@ -212,7 +212,7 @@ class TagMark:
             return
 
         try:
-            self.stamp0 = int(slist[0])
+            self.timestamp = self.stamp0 = int(slist[0])
             self.stamp1 = int(slist[1])
         except ValueError:
             self.stamp1 = 4
@@ -251,7 +251,7 @@ class TagMark:
 
     def __str__(self):
         # There do not seem to be any exceptions raised with weird inputs.
-        datestr = time.strftime("%Y-%m-%d", time.gmtime(self.stamp0))
+        datestr = time.strftime("%Y-%m-%d", time.gmtime(self.timestamp))
         return '|'.join([self.name, datestr,
                          slasti.safestr(self.title), self.url,
                          slasti.safestr(self.note), slasti.safestr(self.tags)])
@@ -271,9 +271,6 @@ class TagMark:
     def key_str(self):
         return make_keystring(self.stamp0, self.stamp1)
 
-    def key(self):
-        return (self.stamp0, self.stamp1)
-
     def get_editpath(self, path_prefix):
         return '%s/edit?mark=%s' % (path_prefix, self.key_str())
 
@@ -283,7 +280,7 @@ class TagMark:
             title = self.url
 
         mark_url = '%s/mark.%s' % (path_prefix, self.key_str())
-        ts = time.gmtime(self.stamp0)
+        ts = time.gmtime(self.timestamp)
         jsondict = {
             "date": unicode(time.strftime("%Y-%m-%d", ts)),
             "xmldate": unicode(time.strftime("%Y-%m-%dT%H:%M:%SZ", ts)),
@@ -324,20 +321,14 @@ class TagMark:
 
 
 class TagTag:
-    def __init__(self, base, taglist, tagindex):
+    def __init__(self, base, name):
         self.base = base
-        self.name = taglist[tagindex]
+        self.name = name
 
-        self.nmark = len(split_marks(load_tag(base.tagdir, taglist[tagindex])))
+        self.num_marks = len(split_marks(load_tag(base.tagdir, name)))
 
     def __str__(self):
         return self.name
-
-    def key(self):
-        return self.name
-
-    def num(self):
-        return self.nmark
 
 #
 # The open database (any back-end in theory, hardcoded to files for now)
@@ -476,8 +467,7 @@ class TagBase:
         self.links_edit(stampkey, old_tags, new_tags)
 
     def delete(self, mark):
-        timeint, fix = mark.key()
-        stampkey = make_keystring(timeint, fix)
+        stampkey = mark.key_str()
         old_tags = read_tags(self.markdir, stampkey)
         self.links_del(stampkey, old_tags)
         try:
@@ -520,5 +510,5 @@ class TagBase:
 
     def get_tags(self):
         dlist = sorted(fs_decode_list(os.listdir(self.tagdir)))
-        for index in range(len(dlist)):
-            yield TagTag(self, dlist, index)
+        for name in dlist:
+            yield TagTag(self, name)
