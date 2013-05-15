@@ -173,7 +173,7 @@ def do_user(environ, start_response, path):
     except KeyError:
         c = None
 
-    base = slasti.tagbase.TagBase(user['root'])
+    base = slasti.tagbase.SlastiDB(user['root'])
     base.open()
 
     ctx = slasti.Context(pfx, user, base, method, path, q, pinput, c)
