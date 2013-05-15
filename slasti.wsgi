@@ -83,6 +83,14 @@ def do_root(environ, start_response):
     return ["Slasti: The Anti-Social Bookmarking\r\n",
             "(https://github.com/zaitcev/slasti)\r\n"]
 
+def do_file(environ, start_response, fname):
+    method = environ['REQUEST_METHOD']
+    if method != 'GET':
+        raise AppGetError(method)
+
+    start_response("200 OK", [('Content-type', 'text/plain')])
+    return [file(fname).read()]
+
 ## Based on James Gardner's environ dump.
 #def do_environ(environ, start_response):
 #    method = environ['REQUEST_METHOD']
@@ -196,8 +204,11 @@ def application(environ, start_response):
                 return ["400 Unable to decode UTF-8 in path\r\n"]
 
     try:
+        stripped_path = path.strip(' ').strip('/')
         if path == None or path == "" or path == "/":
             output = do_root(environ, start_response)
+        elif stripped_path in ["edit.js", "style.css", "slasti.js"]:
+            output = do_file(environ, start_response, stripped_path)
         #elif path == "/environ":
         #    return do_environ(environ, start_response)
         else:

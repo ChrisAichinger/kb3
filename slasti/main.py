@@ -462,6 +462,8 @@ def new_form(start_response, ctx):
     jsondict.update({
             "id_title": "title1",
             "id_button": "button1",
+            "href_stylecss": ctx.prefix + '/style.css',
+            "href_slastijs": ctx.prefix + '/slasti.js',
             "href_editjs": ctx.prefix + '/edit.js',
             "href_fetch": ctx.userpath + '/fetchtitle',
             "mark": None,

@@ -357,6 +357,8 @@ template_html_header = Template("""
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="$href_stylecss">
+    <script src="$href_slastijs" type="text/javascript"></script>
 </head>
 <body>
 """)
