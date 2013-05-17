@@ -357,18 +357,19 @@ template_html_header = Template("""
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="stylesheet" type="text/css" href="$href_stylecss">
-    <script src="$href_slastijs" type="text/javascript"></script>
+    <link href="$href_prefix/style.css" rel="stylesheet" type="text/css">
+    <script src="$href_prefix/showdown.js" type="text/javascript"></script>
+    <script src="$href_prefix/jquery.js" type="text/javascript"></script>
+    <script src="$href_prefix/slasti.js" type="text/javascript"></script>
 </head>
 <body>
 """)
 
 template_html_body_top = Template("""
-<table width="100%" style="background: #ebf7eb"
- border=0 cellpadding=1 cellspacing=0>
+<table class="bar_top">
 <tr valign="top">
     <td align="left">
-        <h2 style="margin-bottom:0">
+        <h2 class="username">
             <a href="$href_user">$name_user</a> /
             #if ${href_current_tag:-}
                 <a href="$href_current_tag">
@@ -395,8 +396,7 @@ template_html_body_top = Template("""
             [e]
         #end if
         Search:
-        <form method="GET" action="$action_search"
-              style="margin: 0px 0px 0px 0px; display: inline;">
+        <form method="GET" action="$action_search">
         <input type="text" name="q" value="${val_search:-}" />
         <input type="submit" value="Go" />
         </form>
@@ -430,12 +430,12 @@ template_html_page = Template(
     template_html_body_top,
     """
     #for $mark in $marks
-        <p>${mark.date} [<a href="${mark.href_mark}">&#9734;</a>]
-          <a href="${mark.href_mark_url}">${mark.title}</a>
+        <div class="bookmark">${mark.date}
+          [<a href="${mark.href_mark}">&#9734;</a>]
+          <a href="${mark.href_mark_url}">${mark.title}</a><br />
           #if ${mark.note}
-              <br />${mark.note}
+              <div class="note">${mark.note}</div>
           #end if
-          <br />
           #for $tag in ${mark.tags}
               #if ${tag.href_tag} and ${tag.name_tag}
                   <a href="${tag.href_tag}">${tag.name_tag}</a>
@@ -446,7 +446,7 @@ template_html_page = Template(
           #if not ${mark.tags}
           -
           #end if
-        </p>
+        </div>
     #end for
     """,
     template_html_body_bottom)
@@ -456,12 +456,12 @@ template_html_mark = Template(
     template_html_body_top,
     """
     #for $mark in $marks
-        <p>${mark.date} [<a href="${mark.href_mark}">&#9734;</a>]
-          <a href="${mark.href_mark_url}">${mark.title}</a>
+        <div class="bookmark">${mark.date}
+          [<a href="${mark.href_mark}">&#9734;</a>]
+          <a href="${mark.href_mark_url}">${mark.title}</a><br />
           #if ${mark.note}
-              <br />${mark.note}
+              <div class="note">${mark.note}</div>
           #end if
-          <br />
           #for $tag in ${mark.tags}
               #if ${tag.href_tag} and ${tag.name_tag}
                   <a href="${tag.href_tag}">${tag.name_tag}</a>
@@ -472,7 +472,7 @@ template_html_mark = Template(
           #if not ${mark.tags}
           -
           #end if
-        </p>
+        </div>
         <p>
         [<a href="$href_edit">edit</a>]
         </p>
@@ -527,13 +527,13 @@ template_html_editform = Template(
     template_html_header,
     template_html_body_top,
     """
-    <script src="$href_editjs"></script>
+    <script src="$href_prefix/edit.js" type="text/javascript"></script>
     <form action="$action_edit" method="POST" name="editform">
      <table>
      <tr>
       <td>Title
       <td>
-        <input name="title" type="text" size=80 maxlength=1023 id="$id_title"
+        <input name="title" type="text" size=80 maxlength=1024 id="$id_title"
                value="${val_title:-}" />
         #if not $mark
         <input name="preload" value="Preload" type="button" id="$id_button"
@@ -541,16 +541,16 @@ template_html_editform = Template(
         #end if
      </tr><tr>
       <td>URL
-      <td><input name="href" type="text" size=95 maxlength=1023
+      <td><input name="href" type="text" size=95 maxlength=1024
            value="${val_href:-}"/>
      </tr><tr>
       <td>tags
-      <td><input name="tags" type="text" size=95 maxlength=1023
+      <td><input name="tags" type="text" size=95 maxlength=1024
            value="${val_tags:-}"/>
      </tr><tr>
       <td>Extra
-      <td><input name="extra" type="text" size=95 maxlength=1023
-           value="${val_note:-}"/>
+      <td><textarea name="extra" type="text"
+                    cols=95 rows=4>${val_note:-}</textarea>
      </tr><tr>
       <td colspan=2><input name=action type=submit value="Save" />
      </tr></table>

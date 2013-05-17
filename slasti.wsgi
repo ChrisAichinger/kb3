@@ -205,9 +205,11 @@ def application(environ, start_response):
 
     try:
         stripped_path = path.strip(' ').strip('/')
+        static_files = ["edit.js", "style.css", "slasti.js", "jquery.js",
+                        "showdown.js"]
         if path == None or path == "" or path == "/":
             output = do_root(environ, start_response)
-        elif stripped_path in ["edit.js", "style.css", "slasti.js"]:
+        elif stripped_path in static_files:
             output = do_file(environ, start_response, stripped_path)
         #elif path == "/environ":
         #    return do_environ(environ, start_response)

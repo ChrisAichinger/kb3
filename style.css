@@ -1,0 +1,38 @@
+
+textarea {
+    resize:vertical;
+}
+
+div {
+    border: 0px;
+    margin: 0px;
+}
+
+.note > p {
+    padding: 0px;
+    border: 0px;
+    margin: 0px;
+}
+
+.bookmark {
+    margin-left: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.bar_top {
+    width: 100%;
+    background: #ebf7eb;
+    border: 0px;
+    border-collapse: collapse;
+    border-spacing: 0px;
+}
+
+form {
+    margin: 0px 0px 0px 0px;
+    display: inline;
+}
+
+h2.username {
+    margin-bottom: 0px;
+}

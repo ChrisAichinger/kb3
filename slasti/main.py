@@ -462,9 +462,6 @@ def new_form(start_response, ctx):
     jsondict.update({
             "id_title": "title1",
             "id_button": "button1",
-            "href_stylecss": ctx.prefix + '/style.css',
-            "href_slastijs": ctx.prefix + '/slasti.js',
-            "href_editjs": ctx.prefix + '/edit.js',
             "href_fetch": ctx.userpath + '/fetchtitle',
             "mark": None,
             "current_tag": "[" + WHITESTAR + "]",
@@ -486,7 +483,6 @@ def edit_form(start_response, ctx):
     jsondict.update({
         "id_title": "title1",
         "id_button": "button1",
-        "href_editjs": ctx.prefix + '/edit.js',
         "href_fetch": ctx.userpath + '/fetchtitle',
         "mark": mark.to_jsondict(ctx.userpath),
         "current_tag": WHITESTAR,
@@ -518,7 +514,8 @@ def edit_post(start_response, ctx):
     response_headers.append(('Location', slasti.safestr(redihref)))
     start_response("303 See Other", response_headers)
 
-    jsondict = { "href_redir": redihref }
+    jsondict = { "href_redir": redihref,
+                 "href_prefix": ctx.prefix }
     return [slasti.template.template_html_redirect.substitute(jsondict)]
 
 def new(start_response, ctx):

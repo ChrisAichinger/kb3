@@ -78,6 +78,7 @@ class Context:
     def create_jsondict(self):
         jsondict = {"name_user": self.user["name"],
                     "href_user": self.userpath,
+                    "href_prefix": self.prefix,
                     "href_tags": "%s/tags" % self.userpath,
                     "href_new": "%s/new" % self.userpath,
                     "action_search": "%s/search" % self.userpath,
