@@ -214,73 +214,70 @@ class Application:
         #   moo.xml/        -- tricky tag
         #   page.129/       -- even trickier tag
 
-        if self.path == "login":
-            if self.method == 'GET':
-                return self.login_form()
-            elif self.method == 'POST':
-                return self.login_post()
-            else:
+        auth_force = object()
+        auth_none = object()
+        auth_redirect = object()
+        commands = {
+            "login": {
+                "GET": (auth_none, self.login_form),
+                "POST": (auth_none, self.login_post),
+                },
+            "new": {
+                "GET": (auth_redirect, self.new_form),
+                },
+            "edit": {
+                "GET": (auth_force, self.edit_form),
+                "POST": (auth_force, self.edit_post),
+                },
+            "delete": {
+                "POST": (auth_force, self.delete_post),
+                },
+            "fetchtitle": {
+                "GET": (auth_force,
+                        lambda: fetch_get(self.start_response, self)),
+                },
+            "": {
+                "GET": (auth_none, lambda: self.root_generic_html(tag=None)),
+                },
+            "export": {
+                "GET": (auth_force, self.full_mark_xml),
+                },
+            "tags": {
+                "GET": (auth_none, self.full_tag_html),
+                },
+            "search": {
+                "GET": (auth_none, self.full_search_html),
+                },
+        }
+        if self.path in commands:
+            if not self.method in commands[self.path]:
                 raise AppGetPostError(self.method)
-        if self.path == "new":
-            if not self.is_logged_in:
+
+            auth, callback = commands[self.path][self.method]
+            if not self.is_logged_in and auth == auth_force:
+                raise AppLoginError()
+            if not self.is_logged_in and auth == auth_redirect:
                 return self.redirect_to_login()
-            if self.method != 'GET':
-                raise AppGetError(self.method)
-            return self.new_form()
-        if self.path == "edit":
-            if not self.is_logged_in:
-                raise AppLoginError()
-            if self.method == 'GET':
-                return self.edit_form()
-            elif self.method == 'POST':
-                return self.edit_post()
-            else:
-                raise AppGetPostError(self.method)
-        if self.path == "delete":
-            if not self.is_logged_in:
-                raise AppLoginError()
-            if self.method != 'POST':
-                raise AppPostError(self.method)
-            return self.delete_post()
-        if self.path == "fetchtitle":
-            if not self.is_logged_in:
-                raise AppLoginError()
-            if self.method == 'GET':
-                return fetch_get(self.start_response, self)
-            raise AppGetError(self.method)
-        if self.path == "":
-            return self.root_generic_html(tag=None)
-        if self.path == "export.xml":
-            if not self.is_logged_in:
-                raise AppLoginError()
-            return self.full_mark_xml()
-        if self.path == "tags":
-            return self.full_tag_html()
-        if self.path == "search":
-            return self.full_search_html()
+
+            return callback()
+
         if "/" in self.path:
             # Trick: by splitting with limit 2 we prevent users from poisoning
             # the tag with slashes. Not that it matters all that much, still...
-            p = self.path.split("/", 2)
-            tag = p[0]
-            page = p[1]
-            if page == "":
+            tag, page = self.path.split("/", 2)
+            if not page:
                 return self.root_generic_html(tag)
-            p = page.split(".", 1)
-            if len(p) != 2:
+            if not page.startswith("page."):
                 raise App404Error("Not found: " + self.path)
-            if p[0] != "page":
-                raise App404Error("Not found: " + self.path)
+            p = page.split(".", 1)[1]
             return self.page_generic_html(p[1], tag)
         else:
-            p = self.path.split(".", 1)
-            if len(p) != 2:
-                raise App404Error("Not found: " + self.path)
-            mark_str = p[1]
-            if p[0] == "mark":
-                return self.one_mark_html(mark_str)
-            if p[0] == "page":
-                return self.page_generic_html(mark_str, tag=None)
+            if page.startswith("mark."):
+                mark_id = self.path.split('.', 1)[1]
+                return self.one_mark_html(mark_id)
+            if page.startswith("page."):
+                mark_id = self.path.split('.', 1)[1]
+                return self.one_mark_html(mark_id, tag=None)
             raise App404Error("Not found: " + self.path)
 
     def login_verify(self):
