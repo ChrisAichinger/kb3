@@ -57,58 +57,6 @@ def url_search(mark, query, path):
     query = slasti.escapeURLComponent(query)
     return '%s/search?q=%s&firstmark=%s' % (path, query, mark.key_str())
 
-def find_post_args(ctx):
-    rdic = {}
-    for key in ['title', 'href', 'tags', 'extra']:
-        rdic[key] = ctx.get_pinput_arg(key) or ""
-
-    if not rdic["href"] or not rdic["tags"]:
-        raise App400Error("The URL and tags are mandatory")
-
-    return rdic
-
-def page_any_html(start_response, ctx, mark_top, mark_list, what,
-                  jsondict_extra, linkmaker):
-    mark_list = list(mark_list)
-
-    index = mark_list.index(mark_top)
-    if index <= 0:
-        mark_prev = None
-    else:
-        mark_prev = mark_list[max(0, index - PAGESZ)]
-    mark_next = list_get_default(mark_list, index + PAGESZ, default=None)
-
-    output_marks = mark_list[index : index + PAGESZ]
-
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
-            "current_tag": what,
-            "marks": [m.to_jsondict(ctx.userpath) for m in output_marks],
-
-            "href_page_prev": linkmaker(mark_prev),
-            "href_page_this": linkmaker(mark_top),
-            "href_page_next": linkmaker(mark_next),
-            })
-    jsondict.update(jsondict_extra)
-    return [slasti.template.template_html_page.substitute(jsondict)]
-
-def page_empty_html(start_response, ctx):
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
-                "current_tag": "[-]",
-                "marks": [],
-               })
-    return [slasti.template.template_html_page.substitute(jsondict)]
-
-def delete_post(start_response, ctx):
-    ctx.base.delete(ctx.base.lookup(ctx.get_pinput_arg("mark")))
-
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    return [slasti.template.template_html_delete.substitute(jsondict)]
-
 class FetchParser(sgmllib.SGMLParser):
     def __init__(self, verbose=0):
         sgmllib.SGMLParser.__init__(self, verbose)
@@ -180,444 +128,542 @@ def fetch_get(start_response, ctx):
     jsondict = { "output": '%s\r\n' % title }
     return [slasti.template.template_simple_output.substitute(jsondict)]
 
-def mark_post(start_response, ctx, mark):
-    argd = find_post_args(ctx)
 
-    tags = tagbase.split_marks(argd['tags'])
-    ctx.base.edit1(mark, argd['title'], argd['href'], argd['extra'], tags)
 
-    # Since the URL stays the same, we eschew 303 here.
-    # Just re-read the base entry with a lookup and pretend this was a GET.
-    new_mark = ctx.base.lookup(mark.id)
-    if new_mark == None:
-        raise App404Error("Mark not found: " + mark)
-    return mark_get(start_response, ctx, new_mark)
 
-def mark_get(start_response, ctx, mark):
-    headers = list(ctx.base.get_headers())
-    index = headers.index(mark)
-    mark_prev = list_get_default(headers, index - 1, default=None)
-    mark_next = list_get_default(headers, index + 1, default=None)
 
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
-              "marks": [mark.to_jsondict(ctx.userpath)],
-              "href_edit": url_mark_edit(mark, ctx.userpath),
-              "href_page_prev": url_mark(mark_prev, ctx.userpath),
-              "href_page_this": url_mark(mark, ctx.userpath),
-              "href_page_next": url_mark(mark_next, ctx.userpath),
-             })
-    return [slasti.template.template_html_mark.substitute(jsondict)]
 
-def one_mark_html(start_response, ctx, mark_str):
-    mark = ctx.base.lookup(mark_str)
-    if mark == None:
-        raise App404Error("Mark not found: " + mark_str)
-    if ctx.method == 'GET':
-        return mark_get(start_response, ctx, mark)
-    if ctx.method == 'POST':
-        if ctx.flogin == 0:
-            raise AppLoginError()
-        return mark_post(start_response, ctx, mark)
-    raise AppGetPostError(ctx.method)
+class Application:
+    def __init__(self, basepath, user, db,
+                 method, path, query, pinput, cookies,
+                 start_response):
+        self.basepath = basepath
+        self.user = user
+        self.base = db
+        self.method = method
+        self.path = path
+        self.query = query
+        self.pinput = pinput
+        self.cookies = cookies
+        self.start_response = start_response
+        self.userpath = self.basepath + '/' + self.user["name"]
 
-def root_generic_html(start_response, ctx, tag):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
+        self.is_logged_in = self.login_verify()
 
-    if tag:
-        marks = list(ctx.base.get_tag_marks(tag))
-        path = ctx.userpath + '/' + tag
-    else:
-        marks = list(ctx.base.get_marks())
-        path = ctx.userpath
+        self.query_args = self._parse_args(self.query)
+        self.pinput_args = self._parse_args(self.pinput)
 
-    if not marks:
-        if tag:
-            raise App404Error("Tag page not found: " + tag)
+    def get_query_arg(self, argname):
+        return self.query_args.get(argname, None)
+
+    def get_pinput_arg(self, argname):
+        return self.pinput_args.get(argname, None)
+
+    def find_post_args(self):
+        rdic = {}
+        for key in ['title', 'href', 'tags', 'extra']:
+            rdic[key] = self.get_pinput_arg(key) or ""
+
+        if not rdic["href"] or not rdic["tags"]:
+            raise App400Error("The URL and tags are mandatory")
+
+        return rdic
+
+
+    def _parse_args(self, args):
+        if not args:
+            return {}
+
+        qdic = urlparse.parse_qs(args)
+        for key in qdic:
+            qdic[key] = qdic[key][0].decode("utf-8", 'replace')
+
+        return qdic
+
+    def create_jsondict(self):
+        jsondict = {"name_user": self.user["name"],
+                    "href_user": self.userpath,
+                    "href_prefix": self.basepath,
+                    "href_tags": "%s/tags" % self.userpath,
+                    "href_new": "%s/new" % self.userpath,
+                    "action_search": "%s/search" % self.userpath,
+                   }
+        if self.is_logged_in:
+            jsondict["href_export"]= self.userpath + '/export.xml'
+            jsondict["href_login"] = None
         else:
-            return page_empty_html(start_response, ctx)
+            jsondict["href_export"]= None
+            jsondict["href_login"] = "%s/login" % self.userpath
+            if self.path and self.path != "login" and self.path != "edit":
+                jsondict["href_login"] += '?savedref=%s' % self.path
+        return jsondict
 
-    return page_any_html(
-            start_response, ctx, marks[0], marks, what=tag, jsondict_extra={},
-            linkmaker=lambda mark: url_page(mark, path))
+    def process_request(self):
+        # Request paths:
+        #   ''              -- default list (starting at latest mark)
+        #   page.129        -- bookmark list starting at mark #129
+        #   mark.129        -- display single mark #129
+        #   export.xml      -- delicious-compatible XML
+        #   new             -- GET for the form
+        #   edit            -- PUT or POST here, GET may have ?query
+        #   delete          -- POST
+        #   fetchtitle      -- GET with ?query
+        #   login           -- GET/POST to obtain a cookie (not snoop-proof)
+        #   anime/          -- tag (must have slash)
+        #   anime/page.129  -- tag page off this down
+        #   moo.xml/        -- tricky tag
+        #   page.129/       -- even trickier tag
 
-def page_generic_html(start_response, ctx, mark_str, tag):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
-
-    if tag:
-        marks = list(ctx.base.get_tag_marks(tag))
-        path = ctx.userpath + '/' + tag
-    else:
-        marks = list(ctx.base.get_marks())
-        path = ctx.userpath
-
-    mark = ctx.base.lookup(mark_str)
-    if mark not in marks:
-        if tag:
-            raise App404Error("Tag page not found: " + tag + " / " + mark_str)
+        if self.path == "login":
+            if self.method == 'GET':
+                return self.login_form()
+            elif self.method == 'POST':
+                return self.login_post()
+            else:
+                raise AppGetPostError(self.method)
+        if self.path == "new":
+            if not self.is_logged_in:
+                return self.redirect_to_login()
+            if self.method != 'GET':
+                raise AppGetError(self.method)
+            return self.new_form()
+        if self.path == "edit":
+            if not self.is_logged_in:
+                raise AppLoginError()
+            if self.method == 'GET':
+                return self.edit_form()
+            elif self.method == 'POST':
+                return self.edit_post()
+            else:
+                raise AppGetPostError(self.method)
+        if self.path == "delete":
+            if not self.is_logged_in:
+                raise AppLoginError()
+            if self.method != 'POST':
+                raise AppPostError(self.method)
+            return self.delete_post()
+        if self.path == "fetchtitle":
+            if not self.is_logged_in:
+                raise AppLoginError()
+            if self.method == 'GET':
+                return fetch_get(self.start_response, self)
+            raise AppGetError(self.method)
+        if self.path == "":
+            return self.root_generic_html(tag=None)
+        if self.path == "export.xml":
+            if not self.is_logged_in:
+                raise AppLoginError()
+            return self.full_mark_xml()
+        if self.path == "tags":
+            return self.full_tag_html()
+        if self.path == "search":
+            return self.full_search_html()
+        if "/" in self.path:
+            # Trick: by splitting with limit 2 we prevent users from poisoning
+            # the tag with slashes. Not that it matters all that much, still...
+            p = self.path.split("/", 2)
+            tag = p[0]
+            page = p[1]
+            if page == "":
+                return self.root_generic_html(tag)
+            p = page.split(".", 1)
+            if len(p) != 2:
+                raise App404Error("Not found: " + self.path)
+            if p[0] != "page":
+                raise App404Error("Not found: " + self.path)
+            return self.page_generic_html(p[1], tag)
         else:
-            # We have to have at least one mark to display a page
-            raise App404Error("Page not found: " + mark_str)
-    return page_any_html(
-            start_response, ctx, mark, marks, what=tag, jsondict_extra={},
-            linkmaker=lambda mark: url_page(mark, path))
+            p = self.path.split(".", 1)
+            if len(p) != 2:
+                raise App404Error("Not found: " + self.path)
+            mark_str = p[1]
+            if p[0] == "mark":
+                return self.one_mark_html(mark_str)
+            if p[0] == "page":
+                return self.page_generic_html(mark_str, tag=None)
+            raise App404Error("Not found: " + self.path)
 
-# full_mark_html() would be a Netscape bookmarks file, perhaps.
-def full_mark_xml(start_response, ctx):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
+    def login_verify(self):
+        if not self.user.has_key('pass'):
+            return False
+        if not self.cookies:
+            return False
+        if not self.cookies.has_key('login'):
+            return False
 
-    start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
-    jsondict = { "marks": [], "name_user": ctx.user['name'] }
-    for mark in ctx.base.get_marks():
-        jsondict["marks"].append(mark.to_jsondict(ctx.userpath))
+        (opdata, xhash) = self.cookies['login'].value.split(':')
+        (csalt, flags, whenstr) = opdata.split(',')
+        try:
+            when = int(whenstr)
+        except ValueError:
+            return False
+        now = int(time.time())
+        if now < when or when <= now - 3600 * 24 * 14:
+            return False
+        if flags != '-':
+            return False
 
-    return [slasti.template.template_xml_export.substitute(jsondict)]
+        coohash = hashlib.sha256()
+        coohash.update(self.user['pass'] + opdata)
+        if coohash.hexdigest() != xhash:
+            return False
 
-def full_tag_html(start_response, ctx):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
+        return True
 
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = ctx.create_jsondict()
-    jsondict["current_tag"] = "tags"
-    jsondict["tags"] = []
-    for tag in ctx.base.get_tags():
-        jsondict["tags"].append(
-            {"href_tag": '%s/%s/' % (ctx.userpath,
-                                     slasti.escapeURLComponent(tag.name)),
-             "name_tag": tag.name,
-             "num_tagged": tag.num_marks,
-            })
-    return [slasti.template.template_html_tags.substitute(jsondict)]
+    def login_form(self):
+        self.start_response("200 OK",
+                            [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = {
+                "href_prefix": self.basepath,
+                "username": self.user['name'],
+                "action_login": "%s/login" % self.userpath,
+                "savedref": self.get_query_arg("savedref"),
+                }
+        return [slasti.template.template_html_login.substitute(jsondict)]
 
-def full_search_html(start_response, ctx):
-    if ctx.method != 'GET':
-        raise AppGetError(ctx.method)
+    def login_post(self):
+        savedref = self.get_pinput_arg("savedref")
+        if savedref:
+            savedref = savedref.decode("utf-8", 'replace')
+            redihref = "%s/%s" % (self.userpath, savedref)
+        else:
+            redihref = "%s/" % self.userpath;
 
-    query = ctx.get_query_arg('q')
-    if not query:
-        # If q is missing/empty (e.g. search for ""), redirect to homepage
-        response_headers = [('Content-type', 'text/html; charset=utf-8'),
-                            ('Location', slasti.safestr(ctx.userpath))]
-        start_response("303 See Other", response_headers)
+        password = self.get_pinput_arg("password")
+        if not password:
+            raise App400Error("bad password tag")
 
-        jsondict = { "href_redir": ctx.userpath }
+        # We do not require every user to have a password, in order to have
+        # archive users or other pseudo-users. They cannot login, even if they
+        # fake the login cookies.
+        if not self.user.has_key('salt'):
+            raise AppError("User with no salt: " + self.user["name"])
+        if not self.user.has_key('pass'):
+            raise AppError("User with no password: " + self.user["name"])
+
+        pwhash = hashlib.md5()
+        pwhash.update(self.user['salt'] + password)
+        pwstr = pwhash.hexdigest()
+
+        # We operate on a hex of the salted password's digest, to avoid parsing.
+        if pwstr != self.user['pass']:
+            self.start_response("403 Not Permitted",
+                           [('Content-type', 'text/plain; charset=utf-8')])
+            jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
+            return [slasti.template.template_simple_output.substitute(jsondict)]
+
+        csalt = base64.b64encode(os.urandom(6))
+        flags = "-"
+        nowstr = "%d" % int(time.time())
+        opdata = csalt + "," + flags + "," + nowstr
+
+        coohash = hashlib.sha256()
+        coohash.update(self.user['pass'] + opdata)
+        # We use hex instead of base64 because it's easy to test in shell.
+        mdstr = coohash.hexdigest()
+
+        response_headers = [('Content-type', 'text/html; charset=utf-8')]
+        # Set an RFC 2901 cookie (not RFC 2965).
+        response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
+        response_headers.append(('Location', slasti.safestr(redihref)))
+        self.start_response("303 See Other", response_headers)
+
+        jsondict = { "href_redir": redihref,
+                     "href_prefix": self.basepath }
         return [slasti.template.template_html_redirect.substitute(jsondict)]
 
-    marks = [m for m in ctx.base.get_marks() if m.contains(query)]
+    def redirect_to_login(self):
+        thisref = self.path + '?' + urllib.quote_plus(self.query)
+        login_loc = self.userpath + '/login?savedref=' + thisref
+        response_headers = [('Content-type', 'text/html; charset=utf-8'),
+                            ('Location', slasti.safestr(login_loc))]
+        self.start_response("303 See Other", response_headers)
 
-    mark_str = ctx.get_query_arg('firstmark')
-    if mark_str:
-        mark = ctx.base.lookup(mark_str)
+        jsondict = { "href_redir": login_loc,
+                     "href_prefix": self.basepath }
+        return [slasti.template.template_html_redirect.substitute(jsondict)]
+
+    def find_similar_marks(self, href):
+        if not href:
+            return []
+        href = href.lower().strip()
+        user_parsed = urlparse.urlsplit(href)
+
+        candidates = []
+        for mark in self.base.get_marks():
+            markurl = mark.url.lower()
+            if href == markurl:
+                # exact match
+                return [mark]
+
+            mark_parsed = urlparse.urlparse(markurl)
+            if user_parsed.netloc != mark_parsed.netloc:
+                # Different hosts - not our similar
+                continue
+
+            r = difflib.SequenceMatcher(None, href, markurl).quick_ratio()
+            if r > 0.8:
+                candidates.append((r, mark))
+
+        # Use sort key, otherwise we blow up if two ratios are equal
+        # (no compare operations defined for marks)
+        candidates = sorted(candidates, key=lambda elem: elem[0], reverse=True)
+        return [mark for ratio, mark in candidates]
+
+    def new_form(self):
+        title = self.get_query_arg('title')
+        href = self.get_query_arg('href')
+        similar = self.find_similar_marks(href)
+
+        jsondict = self.create_jsondict()
+        jsondict.update({
+                "id_title": "title1",
+                "id_button": "button1",
+                "href_fetch": self.userpath + '/fetchtitle',
+                "mark": None,
+                "current_tag": "[" + WHITESTAR + "]",
+                "action_edit": self.userpath + '/edit',
+                "val_title": title,
+                "val_href": href,
+                "similar_marks": [m.to_jsondict(self.userpath) for m in similar],
+            })
+        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        return [slasti.template.template_html_editform.substitute(jsondict)]
+
+    def edit_form(self):
+        mark_str = self.get_query_arg("mark")
+        mark = self.base.lookup(mark_str)
         if not mark:
-            raise App404Error("Bookmark not found: " + mark_str)
-        if mark not in marks:
-            raise App404Error("Bookmark not in results list: " + mark_str)
-    else:
-        mark = marks[0]
+            raise App400Error("not found: " + mark_str)
 
-    path = ctx.userpath
-    return page_any_html(
-            start_response, ctx, mark, marks,
-            what="[ search results ]",
-            jsondict_extra={ "val_search": query },
-            linkmaker=lambda mark: url_search(mark, query, path))
-
-
-def login_form(start_response, ctx):
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    jsondict = {
-            "username": ctx.user['name'],
-            "action_login": "%s/login" % ctx.userpath,
-            "savedref": ctx.get_query_arg("savedref"),
-            }
-    return [slasti.template.template_html_login.substitute(jsondict)]
-
-def login_post(start_response, ctx):
-
-    # pinput = "password=test&OK=Enter" and possibly a newline
-    savedref = ctx.get_pinput_arg("savedref")
-    if savedref:
-        savedref = savedref.decode("utf-8", 'replace')
-        redihref = "%s/%s" % (ctx.userpath, savedref)
-    else:
-        redihref = "%s/" % ctx.userpath;
-
-    password = ctx.get_pinput_arg("password")
-    if not password:
-        raise App400Error("bad password tag")
-
-    # We do not require every user to have a password, in order to have
-    # archive users or other pseudo-users. They cannot login, even if they
-    # fake the login cookies.
-    if not ctx.user.has_key('salt'):
-        raise AppError("User with no salt: " + ctx.user["name"])
-    if not ctx.user.has_key('pass'):
-        raise AppError("User with no password: " + ctx.user["name"])
-
-    pwhash = hashlib.md5()
-    pwhash.update(ctx.user['salt'] + password)
-    pwstr = pwhash.hexdigest()
-
-    # We operate on a hex of the salted password's digest, to avoid parsing.
-    if pwstr != ctx.user['pass']:
-        start_response("403 Not Permitted",
-                       [('Content-type', 'text/plain; charset=utf-8')])
-        jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
-        return [slasti.template.template_simple_output.substitute(jsondict)]
-
-    csalt = base64.b64encode(os.urandom(6))
-    flags = "-"
-    nowstr = "%d" % int(time.time())
-    opdata = csalt + "," + flags + "," + nowstr
-
-    coohash = hashlib.sha256()
-    coohash.update(ctx.user['pass'] + opdata)
-    # We use hex instead of base64 because it's easy to test in shell.
-    mdstr = coohash.hexdigest()
-
-    response_headers = [('Content-type', 'text/html; charset=utf-8')]
-    # Set an RFC 2901 cookie (not RFC 2965).
-    response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
-    response_headers.append(('Location', slasti.safestr(redihref)))
-    start_response("303 See Other", response_headers)
-
-    jsondict = { "href_redir": redihref }
-    return [slasti.template.template_html_redirect.substitute(jsondict)]
-
-def login(start_response, ctx):
-    if ctx.method == 'GET':
-        return login_form(start_response, ctx)
-    if ctx.method == 'POST':
-        return login_post(start_response, ctx)
-    raise AppGetPostError(ctx.method)
-
-def login_verify(ctx):
-    if not ctx.user.has_key('pass'):
-        return 0
-    if ctx.cookies == None:
-        return 0
-    if not ctx.cookies.has_key('login'):
-        return 0
-
-    cval = ctx.cookies['login'].value
-    (opdata, xhash) = cval.split(':')
-    (csalt,flags,whenstr) = opdata.split(',')
-    try:
-        when = int(whenstr)
-    except ValueError:
-        return 0
-    now = int(time.time())
-    if now < when or now >= when + 1209600:
-        return 0
-    if flags != '-':
-        return 0
-
-    coohash = hashlib.sha256()
-    coohash.update(ctx.user['pass'] + opdata)
-    mdstr = coohash.hexdigest()
-
-    if mdstr != xhash:
-        return 0
-
-    return 1
-
-def find_similar_marks(href, ctx):
-    if not href:
-        return []
-    href = href.lower().strip()
-    user_parsed = urlparse.urlsplit(href)
-
-    candidates = []
-    for mark in ctx.base.get_marks():
-        markurl = mark.url.lower()
-        if href == markurl:
-            # exact match
-            return [mark]
-
-        mark_parsed = urlparse.urlparse(markurl)
-        if user_parsed.netloc != mark_parsed.netloc:
-            # Different hosts - not our similar
-            continue
-
-        r = difflib.SequenceMatcher(None, href, markurl).quick_ratio()
-        if r > 0.8:
-            candidates.append((r, mark))
-
-    # Use sort key, otherwise we blow up if two ratios are equal
-    # (no compare operations defined for marks)
-    candidates = sorted(candidates, key=lambda elem: elem[0], reverse=True)
-    return [mark for ratio, mark in candidates]
-
-def new_form(start_response, ctx):
-    title = ctx.get_query_arg('title')
-    href = ctx.get_query_arg('href')
-    similar = find_similar_marks(href, ctx)
-
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
+        jsondict = self.create_jsondict()
+        jsondict.update({
             "id_title": "title1",
             "id_button": "button1",
-            "href_fetch": ctx.userpath + '/fetchtitle',
-            "mark": None,
-            "current_tag": "[" + WHITESTAR + "]",
-            "action_edit": ctx.userpath + '/edit',
-            "val_title": title,
-            "val_href": href,
-            "similar_marks": [m.to_jsondict(ctx.userpath) for m in similar],
-        })
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    return [slasti.template.template_html_editform.substitute(jsondict)]
+            "href_fetch": self.userpath + '/fetchtitle',
+            "mark": mark.to_jsondict(self.userpath),
+            "current_tag": WHITESTAR,
+            "href_current_tag": url_mark(mark, self.userpath),
+            "action_edit": url_mark(mark, self.userpath),
+            "action_delete": self.userpath + '/delete',
+            "val_title": mark.title,
+            "val_href": mark.url,
+            "val_tags": ' '.join(mark.tags),
+            "val_note": mark.note,
+            })
 
-def edit_form(start_response, ctx):
-    mark_str = ctx.get_query_arg("mark")
-    mark = ctx.base.lookup(mark_str)
-    if not mark:
-        raise App400Error("not found: " + mark_str)
+        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        return [slasti.template.template_html_editform.substitute(jsondict)]
 
-    jsondict = ctx.create_jsondict()
-    jsondict.update({
-        "id_title": "title1",
-        "id_button": "button1",
-        "href_fetch": ctx.userpath + '/fetchtitle',
-        "mark": mark.to_jsondict(ctx.userpath),
-        "current_tag": WHITESTAR,
-        "href_current_tag": url_mark(mark, ctx.userpath),
-        "action_edit": url_mark(mark, ctx.userpath),
-        "action_delete": ctx.userpath + '/delete',
-        "val_title": mark.title,
-        "val_href": mark.url,
-        "val_tags": ' '.join(mark.tags),
-        "val_note": mark.note,
-        })
+    # The name edit_post() is a bit misleading, because POST to /edit is used
+    # to create new marks, not to edit existing ones (see mark_post() for that).
+    def edit_post(self):
+        argd = self.find_post_args()
+        tags = tagbase.split_marks(argd['tags'])
 
-    start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-    return [slasti.template.template_html_editform.substitute(jsondict)]
+        mark_str = self.base.add1(argd['title'], argd['href'], argd['extra'], tags)
+        if not mark_str:
+            raise App404Error("Out of fix")
 
-# The name edit_post() is a bit misleading, because POST to /edit is used
-# to create new marks, not to edit existing ones (see mark_post() for that).
-def edit_post(start_response, ctx):
-    argd = find_post_args(ctx)
-    tags = tagbase.split_marks(argd['tags'])
+        redihref = '%s/mark.%s' % (self.userpath, mark_str)
 
-    mark_str = ctx.base.add1(argd['title'], argd['href'], argd['extra'], tags)
-    if not mark_str:
-        raise App404Error("Out of fix")
+        response_headers = [('Content-type', 'text/html; charset=utf-8')]
+        response_headers.append(('Location', slasti.safestr(redihref)))
+        self.start_response("303 See Other", response_headers)
 
-    redihref = '%s/mark.%s' % (ctx.userpath, mark_str)
+        jsondict = { "href_redir": redihref,
+                     "href_prefix": self.basepath }
+        return [slasti.template.template_html_redirect.substitute(jsondict)]
 
-    response_headers = [('Content-type', 'text/html; charset=utf-8')]
-    response_headers.append(('Location', slasti.safestr(redihref)))
-    start_response("303 See Other", response_headers)
+    def delete_post(self):
+        self.base.delete(self.base.lookup(self.get_pinput_arg("mark")))
 
-    jsondict = { "href_redir": redihref,
-                 "href_prefix": ctx.prefix }
-    return [slasti.template.template_html_redirect.substitute(jsondict)]
+        self.start_response("200 OK",
+                            [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        return [slasti.template.template_html_delete.substitute(jsondict)]
 
-def new(start_response, ctx):
-    if ctx.method == 'GET':
-        return new_form(start_response, ctx)
-    raise AppGetError(ctx.method)
+    def page_any_html(self, mark_top, mark_list, what,
+                      jsondict_extra, linkmaker):
 
-def edit(start_response, ctx):
-    if ctx.method == 'GET':
-        return edit_form(start_response, ctx)
-    if ctx.method == 'POST':
-        return edit_post(start_response, ctx)
-    raise AppGetPostError(ctx.method)
+        mark_list = list(mark_list)
+        index = mark_list.index(mark_top)
+        if index <= 0:
+            mark_prev = None
+        else:
+            mark_prev = mark_list[max(0, index - PAGESZ)]
+        mark_next = list_get_default(mark_list, index + PAGESZ, default=None)
 
-def delete(start_response, ctx):
-    if ctx.method == 'POST':
-        return delete_post(start_response, ctx)
-    raise AppPostError(ctx.method)
+        output_marks = mark_list[index : index + PAGESZ]
 
-def fetch_title(start_response, ctx):
-    if ctx.method == 'GET':
-        return fetch_get(start_response, ctx)
-    raise AppGetError(ctx.method)
+        self.start_response("200 OK",
+                            [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        jsondict.update({
+                "current_tag": what,
+                "marks": [m.to_jsondict(self.userpath) for m in output_marks],
 
-def redirect_to_login(start_response, ctx):
-    thisref = ctx.path + '?' + urllib.quote_plus(ctx._query)
-    login_loc = ctx.userpath + '/login?savedref=' + thisref
-    response_headers = [('Content-type', 'text/html; charset=utf-8'),
-                        ('Location', slasti.safestr(login_loc))]
-    start_response("303 See Other", response_headers)
+                "href_page_prev": linkmaker(mark_prev),
+                "href_page_this": linkmaker(mark_top),
+                "href_page_next": linkmaker(mark_next),
+                })
+        jsondict.update(jsondict_extra)
+        return [slasti.template.template_html_page.substitute(jsondict)]
 
-    jsondict = { "href_redir": login_loc }
-    return [slasti.template.template_html_redirect.substitute(jsondict)]
+    def page_empty_html(self):
+        self.start_response("200 OK",
+                            [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        jsondict.update({
+                    "current_tag": "[-]",
+                    "marks": [],
+                   })
+        return [slasti.template.template_html_page.substitute(jsondict)]
 
-#
-# Request paths:
-#   ''                  -- default index (page.XXXX.XX)
-#   page.1296951840.00  -- page off this down
-#   mark.1296951840.00
-#   export.xml          -- del-compatible XML
-#   new                 -- GET for the form
-#   edit                -- PUT or POST here, GET may have ?query
-#   delete              -- POST
-#   fetchtitle          -- GET with ?query
-#   login               -- GET or POST to obtain a cookie (not snoop-proof)
-#   anime/              -- tag (must have slash)
-#   anime/page.1293667202.11  -- tag page off this down
-#   moo.xml/            -- tricky tag
-#   page.1293667202.11/ -- even trickier tag
-#
-def app(start_response, ctx):
-    ctx.flogin = login_verify(ctx)
+    # full_mark_html() would be a Netscape bookmarks file, perhaps.
+    def full_mark_xml(self):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
 
-    if ctx.path == "login":
-        return login(start_response, ctx)
-    if ctx.path == "new":
-        if ctx.flogin == 0:
-            return redirect_to_login(start_response, ctx)
-        return new(start_response, ctx)
-    if ctx.path == "edit":
-        if ctx.flogin == 0:
-            raise AppLoginError()
-        return edit(start_response, ctx)
-    if ctx.path == "delete":
-        if ctx.flogin == 0:
-            raise AppLoginError()
-        return delete(start_response, ctx)
-    if ctx.path == "fetchtitle":
-        if ctx.flogin == 0:
-            raise AppLoginError()
-        return fetch_title(start_response, ctx)
-    if ctx.path == "":
-        return root_generic_html(start_response, ctx, tag=None)
-    if ctx.path == "export.xml":
-        if ctx.flogin == 0:
-            raise AppLoginError()
-        return full_mark_xml(start_response, ctx)
-    if ctx.path == "tags":
-        return full_tag_html(start_response, ctx)
-    if ctx.path == "search":
-        return full_search_html(start_response, ctx)
-    if "/" in ctx.path:
-        # Trick: by splitting with limit 2 we prevent users from poisoning
-        # the tag with slashes. Not that it matters all that much, but still.
-        p = ctx.path.split("/", 2)
-        tag = p[0]
-        page = p[1]
-        if page == "":
-            return root_generic_html(start_response, ctx, tag)
-        p = page.split(".", 1)
-        if len(p) != 2:
-            raise App404Error("Not found: " + ctx.path)
-        if p[0] != "page":
-            raise App404Error("Not found: " + ctx.path)
-        return page_generic_html(start_response, ctx, p[1], tag)
-    else:
-        p = ctx.path.split(".", 1)
-        if len(p) != 2:
-            raise App404Error("Not found: " + ctx.path)
-        mark_str = p[1]
-        if p[0] == "mark":
-            return one_mark_html(start_response, ctx, mark_str)
-        if p[0] == "page":
-            return page_generic_html(start_response, ctx, mark_str, tag=None)
-        raise App404Error("Not found: " + ctx.path)
+        self.start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
+        jsondict = { "marks": [], "name_user": self.user['name'] }
+        for mark in self.base.get_marks():
+            jsondict["marks"].append(mark.to_jsondict(self.userpath))
+
+        return [slasti.template.template_xml_export.substitute(jsondict)]
+
+    def full_tag_html(self):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
+
+        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        jsondict["current_tag"] = "tags"
+        jsondict["tags"] = []
+        for tag in self.base.get_tags():
+            jsondict["tags"].append(
+                {"href_tag": '%s/%s/' % (self.userpath,
+                                         slasti.escapeURLComponent(tag.name)),
+                 "name_tag": tag.name,
+                 "num_tagged": tag.num_marks,
+                })
+        return [slasti.template.template_html_tags.substitute(jsondict)]
+
+    def full_search_html(self):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
+
+        query = self.get_query_arg('q')
+        if not query:
+            # If q is missing/empty (e.g. search for ""), redirect to homepage
+            response_headers = [('Content-type', 'text/html; charset=utf-8'),
+                                ('Location', slasti.safestr(self.userpath))]
+            self.start_response("303 See Other", response_headers)
+
+            jsondict = { "href_redir": self.userpath }
+            return [slasti.template.template_html_redirect.substitute(jsondict)]
+
+        marks = [m for m in self.base.get_marks() if m.contains(query)]
+
+        mark_str = self.get_query_arg('firstmark')
+        if mark_str:
+            mark = self.base.lookup(mark_str)
+            if not mark:
+                raise App404Error("Bookmark not found: " + mark_str)
+            if mark not in marks:
+                raise App404Error("Bookmark not in results list: " + mark_str)
+        else:
+            mark = marks[0]
+
+        return self.page_any_html(
+                mark, marks,
+                what="[ search results ]",
+                jsondict_extra={ "val_search": query },
+                linkmaker=lambda mark: url_search(mark, query, self.userpath))
+
+    def mark_post(self, mark):
+        argd = self.find_post_args()
+
+        tags = tagbase.split_marks(argd['tags'])
+        self.base.edit1(mark, argd['title'], argd['href'], argd['extra'], tags)
+
+        # Since the URL stays the same, we eschew 303 here.
+        # Just re-read the base entry with a lookup and pretend this was a GET.
+        new_mark = self.base.lookup(mark.id)
+        if new_mark == None:
+            raise App404Error("Mark not found: " + mark)
+        return self.mark_get(new_mark)
+
+    def mark_get(self, mark):
+        headers = list(self.base.get_headers())
+        index = headers.index(mark)
+        mark_prev = list_get_default(headers, index - 1, default=None)
+        mark_next = list_get_default(headers, index + 1, default=None)
+
+        self.start_response("200 OK",
+                            [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        jsondict.update({
+                  "marks": [mark.to_jsondict(self.userpath)],
+                  "href_edit": url_mark_edit(mark, self.userpath),
+                  "href_page_prev": url_mark(mark_prev, self.userpath),
+                  "href_page_this": url_mark(mark, self.userpath),
+                  "href_page_next": url_mark(mark_next, self.userpath),
+                 })
+        return [slasti.template.template_html_mark.substitute(jsondict)]
+
+    def one_mark_html(self, mark_str):
+        mark = self.base.lookup(mark_str)
+        if mark == None:
+            raise App404Error("Mark not found: " + mark_str)
+        if self.method == 'GET':
+            return self.mark_get(mark)
+        if self.method == 'POST':
+            if not self.is_logged_in:
+                raise AppLoginError()
+            return self.mark_post(mark)
+        raise AppGetPostError(self.method)
+
+    def root_generic_html(self, tag):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
+
+        if tag:
+            marks = list(self.base.get_tag_marks(tag))
+            path = self.userpath + '/' + tag
+        else:
+            marks = list(self.base.get_marks())
+            path = self.userpath
+
+        if not marks:
+            if tag:
+                raise App404Error("Tag page not found: " + tag)
+            else:
+                return self.page_empty_html()
+
+        return self.page_any_html(
+                marks[0], marks, what=tag, jsondict_extra={},
+                linkmaker=lambda mark: url_page(mark, path))
+
+    def page_generic_html(self, mark_str, tag):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
+
+        if tag:
+            marks = list(self.base.get_tag_marks(tag))
+            path = self.userpath + '/' + tag
+        else:
+            marks = list(self.base.get_marks())
+            path = self.userpath
+
+        mark = self.base.lookup(mark_str)
+        if mark not in marks:
+            if tag:
+                raise App404Error("Tag page not found: " + tag + " / " + mark_str)
+            else:
+                # We have to have at least one mark to display a page
+                raise App404Error("Page not found: " + mark_str)
+        return self.page_any_html(
+                mark, marks, what=tag, jsondict_extra={},
+                linkmaker=lambda mark: url_page(mark, path))
+

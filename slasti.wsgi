@@ -183,8 +183,9 @@ def do_user(environ, start_response, path):
 
     base = slasti.tagbase.SlastiDB(user['root'])
 
-    ctx = slasti.Context(pfx, user, base, method, path, q, pinput, c)
-    output = slasti.main.app(start_response, ctx)
+    app = slasti.main.Application(pfx, user, base, method, path, q, pinput, c,
+                                  start_response)
+    output = app.process_request()
 
     return output
 
