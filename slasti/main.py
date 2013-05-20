@@ -112,26 +112,6 @@ def fetch_body(url):
     body = response.read(10000)
     return body
 
-#
-# The server-side indirection requires extreme care to prevent abuse.
-# User may hit us with URLs that point to generated pages, slow servers, etc.
-# As the last resort, we never work as a generic proxy.
-#
-def fetch_get(start_response, ctx):
-    url = ctx.get_query_arg("url")
-    if not url:
-        raise App400Error("no query")
-    body = fetch_body(url)
-    title = fetch_parse(body)
-
-    start_response("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
-    jsondict = { "output": '%s\r\n' % title }
-    return [slasti.template.template_simple_output.substitute(jsondict)]
-
-
-
-
-
 
 class Application:
     def __init__(self, basepath, user, db,
@@ -145,7 +125,7 @@ class Application:
         self.query = query
         self.pinput = pinput
         self.cookies = cookies
-        self.start_response = start_response
+        self.respond = start_response
         self.userpath = self.basepath + '/' + self.user["name"]
 
         self.is_logged_in = self.login_verify()
@@ -233,8 +213,7 @@ class Application:
                 "POST": (auth_force, self.delete_post),
                 },
             "fetchtitle": {
-                "GET": (auth_force,
-                        lambda: fetch_get(self.start_response, self)),
+                "GET": (auth_force, self.fetch_get),
                 },
             "": {
                 "GET": (auth_none, lambda: self.root_generic_html(tag=None)),
@@ -272,10 +251,10 @@ class Application:
             p = page.split(".", 1)[1]
             return self.page_generic_html(p[1], tag)
         else:
-            if page.startswith("mark."):
+            if self.path.startswith("mark."):
                 mark_id = self.path.split('.', 1)[1]
                 return self.one_mark_html(mark_id)
-            if page.startswith("page."):
+            if self.path.startswith("page."):
                 mark_id = self.path.split('.', 1)[1]
                 return self.one_mark_html(mark_id, tag=None)
             raise App404Error("Not found: " + self.path)
@@ -308,8 +287,7 @@ class Application:
         return True
 
     def login_form(self):
-        self.start_response("200 OK",
-                            [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = {
                 "href_prefix": self.basepath,
                 "username": self.user['name'],
@@ -344,8 +322,8 @@ class Application:
 
         # We operate on a hex of the salted password's digest, to avoid parsing.
         if pwstr != self.user['pass']:
-            self.start_response("403 Not Permitted",
-                           [('Content-type', 'text/plain; charset=utf-8')])
+            self.respond("403 Not Permitted",
+                         [('Content-type', 'text/plain; charset=utf-8')])
             jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
             return [slasti.template.template_simple_output.substitute(jsondict)]
 
@@ -363,7 +341,7 @@ class Application:
         # Set an RFC 2901 cookie (not RFC 2965).
         response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
         response_headers.append(('Location', slasti.safestr(redihref)))
-        self.start_response("303 See Other", response_headers)
+        self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": redihref,
                      "href_prefix": self.basepath }
@@ -374,7 +352,7 @@ class Application:
         login_loc = self.userpath + '/login?savedref=' + thisref
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
                             ('Location', slasti.safestr(login_loc))]
-        self.start_response("303 See Other", response_headers)
+        self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": login_loc,
                      "href_prefix": self.basepath }
@@ -424,7 +402,7 @@ class Application:
                 "val_href": href,
                 "similar_marks": [m.to_jsondict(self.userpath) for m in similar],
             })
-        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         return [slasti.template.template_html_editform.substitute(jsondict)]
 
     def edit_form(self):
@@ -449,24 +427,24 @@ class Application:
             "val_note": mark.note,
             })
 
-        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         return [slasti.template.template_html_editform.substitute(jsondict)]
 
     # The name edit_post() is a bit misleading, because POST to /edit is used
     # to create new marks, not to edit existing ones (see mark_post() for that).
     def edit_post(self):
         argd = self.find_post_args()
-        tags = tagbase.split_marks(argd['tags'])
 
-        mark_str = self.base.add1(argd['title'], argd['href'], argd['extra'], tags)
+        mark_str = self.base.add1(argd['title'], argd['href'], argd['extra'],
+                                  tagbase.split_marks(argd['tags']))
         if not mark_str:
-            raise App404Error("Out of fix")
+            raise App404Error("Could not add bookmark!")
 
         redihref = '%s/mark.%s' % (self.userpath, mark_str)
 
         response_headers = [('Content-type', 'text/html; charset=utf-8')]
         response_headers.append(('Location', slasti.safestr(redihref)))
-        self.start_response("303 See Other", response_headers)
+        self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": redihref,
                      "href_prefix": self.basepath }
@@ -475,8 +453,7 @@ class Application:
     def delete_post(self):
         self.base.delete(self.base.lookup(self.get_pinput_arg("mark")))
 
-        self.start_response("200 OK",
-                            [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         return [slasti.template.template_html_delete.substitute(jsondict)]
 
@@ -493,8 +470,7 @@ class Application:
 
         output_marks = mark_list[index : index + PAGESZ]
 
-        self.start_response("200 OK",
-                            [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict.update({
                 "current_tag": what,
@@ -508,8 +484,7 @@ class Application:
         return [slasti.template.template_html_page.substitute(jsondict)]
 
     def page_empty_html(self):
-        self.start_response("200 OK",
-                            [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict.update({
                     "current_tag": "[-]",
@@ -522,7 +497,7 @@ class Application:
         if self.method != 'GET':
             raise AppGetError(self.method)
 
-        self.start_response("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
         jsondict = { "marks": [], "name_user": self.user['name'] }
         for mark in self.base.get_marks():
             jsondict["marks"].append(mark.to_jsondict(self.userpath))
@@ -533,7 +508,7 @@ class Application:
         if self.method != 'GET':
             raise AppGetError(self.method)
 
-        self.start_response("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict["current_tag"] = "tags"
         jsondict["tags"] = []
@@ -555,7 +530,7 @@ class Application:
             # If q is missing/empty (e.g. search for ""), redirect to homepage
             response_headers = [('Content-type', 'text/html; charset=utf-8'),
                                 ('Location', slasti.safestr(self.userpath))]
-            self.start_response("303 See Other", response_headers)
+            self.respond("303 See Other", response_headers)
 
             jsondict = { "href_redir": self.userpath }
             return [slasti.template.template_html_redirect.substitute(jsondict)]
@@ -597,8 +572,7 @@ class Application:
         mark_prev = list_get_default(headers, index - 1, default=None)
         mark_next = list_get_default(headers, index + 1, default=None)
 
-        self.start_response("200 OK",
-                            [('Content-type', 'text/html; charset=utf-8')])
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict.update({
                   "marks": [mark.to_jsondict(self.userpath)],
@@ -608,6 +582,20 @@ class Application:
                   "href_page_next": url_mark(mark_next, self.userpath),
                  })
         return [slasti.template.template_html_mark.substitute(jsondict)]
+
+    # The server-side indirection requires extreme care to prevent abuse.
+    # User may hit us with URLs that point to generated pages, slow servers,..
+    # As the last resort, we never work as a generic proxy.
+    def fetch_get(self):
+        url = self.get_query_arg("url")
+        if not url:
+            raise App400Error("no query")
+        body = fetch_body(url)
+        title = fetch_parse(body)
+
+        self.respond("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
+        jsondict = { "output": '%s\r\n' % title }
+        return [slasti.template.template_simple_output.substitute(jsondict)]
 
     def one_mark_html(self, mark_str):
         mark = self.base.lookup(mark_str)
