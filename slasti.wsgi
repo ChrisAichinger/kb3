@@ -89,7 +89,7 @@ def do_file(environ, start_response, fname):
         raise AppGetError(method)
 
     start_response("200 OK", [('Content-type', 'text/plain')])
-    return [file(fname).read()]
+    return [file("static_files/" + fname).read()]
 
 ## Based on James Gardner's environ dump.
 #def do_environ(environ, start_response):
