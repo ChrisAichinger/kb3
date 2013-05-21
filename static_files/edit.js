@@ -1,6 +1,10 @@
 // <!-- CDATA? Laffo. -->
 // <!-- <script type="text/javascript"> -->
 
+function htmlDecode(value){
+    return jQuery('<div/>').html(value).text();
+}
+
 function preload_title(fetch_url, title_id, button_id) {
 
     // Fetch the user input from the form
@@ -27,7 +31,7 @@ function preload_title(fetch_url, title_id, button_id) {
         if (req.readyState == 4) {
             if (req.status == 200) {
                // No need to check req.getResponseHeader("Content-Type") for us.
-               t.value = req.responseText;
+               t.value = htmlDecode(req.responseText);
             }
             // Not saving req.statusText for UI predictability.
             if (timer)

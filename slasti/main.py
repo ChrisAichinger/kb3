@@ -16,6 +16,9 @@ import os
 import hashlib
 import http.client
 
+# Beautifulsoup 4.x dependency
+from bs4 import BeautifulSoup
+
 from slasti import AppError, App400Error, AppLoginError, App404Error
 from slasti import AppGetError, AppGetPostError
 import slasti
@@ -54,60 +57,12 @@ def url_search(mark, query, path):
     query = slasti.escapeURLComponent(query)
     return '%s/search?q=%s&firstmark=%s' % (path, query, mark.key_str())
 
-#class FetchParser(sgmllib.SGMLParser):
-#    def __init__(self, verbose=0):
-#        sgmllib.SGMLParser.__init__(self, verbose)
-#        self.in_title = False
-#        self.titlestr = None
-#    def start_title(self, attributes):
-#        self.in_title = True
-#    def end_title(self):
-#        self.in_title = False
-#    def handle_data(self, data):
-#        if self.in_title:
-#            self.titlestr = data
-#
-#def fetch_parse(chunk):
-#    parser = FetchParser()
-#    parser.feed(chunk)
-#    parser.close()
-#    if parser.titlestr == None:
-#        return "(none)"
-#    return parser.titlestr
-#
-## XXX This may need switching to urllib yet, if 301 redirects become a problem.
-#def fetch_body(url):
-#    # XXX Seriously, sanitize url before parsing
-#
-#    scheme, host, path, u_par, u_query, u_frag = urllib.parse.urlparse(url)
-#    if scheme != 'http' and scheme != 'https':
-#        raise App400Error("bad url scheme")
-#
-#    headers = {}
-#    # XXX Forward the Referer: that we received from the client, if any.
-#
-#    if scheme == 'http':
-#        conn = http.client.HTTPConnection(host, timeout=25)
-#    else:
-#        conn = http.client.HTTPSConnection(host, timeout=25)
-#
-#    conn.request("GET", path, None, headers)
-#    response = conn.getresponse()
-#    # XXX A different return code for 201 and 204?
-#    if response.status != 200:
-#        raise App400Error("target error %d" % response.status)
-#
-#    typeval = response.getheader("Content-Type")
-#    if typeval == None:
-#        raise App400Error("target no type")
-#    typestr = typeval.split(";")
-#    if len(typestr) == 0:
-#        raise App400Error("target type none")
-#    if typestr[0] != 'text/html':
-#        raise App400Error("target type %s" % typestr[0])
-#
-#    body = response.read(10000)
-#    return body
+def fetch_site_title(url):
+    # XXX Seriously, sanitize url before opening the page
+    req = urllib.request.urlopen(url)
+    content = req.read(10000)
+    soup = BeautifulSoup(content)
+    return soup.title.text
 
 
 class Application:
@@ -343,7 +298,7 @@ class Application:
         response_headers = [('Content-type', 'text/html; charset=utf-8')]
         # Set an RFC 2901 cookie (not RFC 2965).
         response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
-        response_headers.append(('Location', slasti.safestr(redihref)))
+        response_headers.append(('Location', redihref))
         self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": redihref,
@@ -354,7 +309,7 @@ class Application:
         thisref = self.path + '?' + urllib.parse.quote_plus(self.query)
         login_loc = self.userpath + '/login?savedref=' + thisref
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
-                            ('Location', slasti.safestr(login_loc))]
+                            ('Location', login_loc)]
         self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": login_loc,
@@ -532,7 +487,7 @@ class Application:
         if not query:
             # If q is missing/empty (e.g. search for ""), redirect to homepage
             response_headers = [('Content-type', 'text/html; charset=utf-8'),
-                                ('Location', slasti.safestr(self.userpath))]
+                                ('Location', self.userpath)]
             self.respond("303 See Other", response_headers)
 
             jsondict = { "href_redir": self.userpath }
@@ -593,8 +548,7 @@ class Application:
         url = self.get_query_arg("url")
         if not url:
             raise App400Error("no query")
-        body = fetch_body(url)
-        title = fetch_parse(body)
+        title = fetch_site_title(url)
 
         self.respond("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
         jsondict = { "output": '%s\r\n' % title }
