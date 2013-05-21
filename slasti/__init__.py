@@ -24,11 +24,6 @@ class AppPostError(Exception):
 class AppGetPostError(Exception):
     pass
 
-def safestr(u):
-    if isinstance(u, str):
-        return u.encode('utf-8')
-    return u
-
 def escapeURLComponent(s):
     # Turn s into a bytes first, quote_plus blows up otherwise
     return str(urllib.parse.quote_plus(s.encode("utf-8")))

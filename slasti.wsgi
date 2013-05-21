@@ -177,7 +177,7 @@ def do_user(environ, start_response, path):
         c.load(environ['HTTP_COOKIE'])
     except http.cookies.CookieError as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
-        return ["400 Bad Cookie: "+slasti.safestr(str(e))+"\r\n"]
+        return ["400 Bad Cookie: " + str(e).encode("utf-8") + "\r\n"]
     except KeyError:
         c = None
 
@@ -219,33 +219,36 @@ def application(environ, start_response):
         # The framework blows up if a unicode string leaks into output list.
         safeout = []
         for s in output:
-            safeout.append(slasti.safestr(s))
+            if isinstance(s, str):
+                safeout.append(s.encode("utf-8"))
+            else:
+                safeout.append(s)
         return safeout
 
     except AppError as e:
         start_response("500 Internal Error", [('Content-type', 'text/plain')])
-        return [slasti.safestr(str(e)), b"\r\n"]
+        return [str(e).encode("utf-8"), b"\r\n"]
     except slasti.App400Error as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
-        return [b"400 Bad Request: ", slasti.safestr(str(e)), b"\r\n"]
+        return [b"400 Bad Request: ", str(e).encode("utf-8"), b"\r\n"]
     except slasti.AppLoginError as e:
         start_response("403 Not Permitted", [('Content-type', 'text/plain')])
         return [b"403 Not Logged In\r\n"]
     except App404Error as e:
         start_response("404 Not Found", [('Content-type', 'text/plain')])
-        return [slasti.safestr(str(e)), b"\r\n"]
+        return [str(e).encode("utf-8"), b"\r\n"]
     except AppGetError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'GET')])
-        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
+        return [b"405 Method " + str(e).encode("utf-8") + b" not allowed\r\n"]
     except slasti.AppPostError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'POST')])
-        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
+        return [b"405 Method " + str(e).encode("utf-8") + b" not allowed\r\n"]
     except slasti.AppGetPostError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'GET, POST')])
-        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
+        return [b"405 Method " + str(e).encode("utf-8") + b" not allowed\r\n"]
 
 # We do not have __main__ in WSGI.
 # if __name__.startswith('_mod_wsgi_'):
