@@ -5,24 +5,21 @@
 # See file COPYING for licensing information (expect GPL 2).
 #
 
-from __future__ import unicode_literals
+
 
 import time
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
 import difflib
 import cgi
 import base64
 import os
 import hashlib
-import httplib
-# XXX sgmllib was removed in Python 3.0
-import sgmllib
+import http.client
 
 from slasti import AppError, App400Error, AppLoginError, App404Error
 from slasti import AppGetError, AppGetPostError
 import slasti
-import tagbase
+from . import tagbase
 import slasti.template
 
 PAGESZ = 25
@@ -57,60 +54,60 @@ def url_search(mark, query, path):
     query = slasti.escapeURLComponent(query)
     return '%s/search?q=%s&firstmark=%s' % (path, query, mark.key_str())
 
-class FetchParser(sgmllib.SGMLParser):
-    def __init__(self, verbose=0):
-        sgmllib.SGMLParser.__init__(self, verbose)
-        self.in_title = False
-        self.titlestr = None
-    def start_title(self, attributes):
-        self.in_title = True
-    def end_title(self):
-        self.in_title = False
-    def handle_data(self, data):
-        if self.in_title:
-            self.titlestr = data
-
-def fetch_parse(chunk):
-    parser = FetchParser()
-    parser.feed(chunk)
-    parser.close()
-    if parser.titlestr == None:
-        return "(none)"
-    return parser.titlestr
-
-# XXX This may need switching to urllib yet, if 301 redirects become a problem.
-def fetch_body(url):
-    # XXX Seriously, sanitize url before parsing
-
-    scheme, host, path, u_par, u_query, u_frag = urlparse.urlparse(url)
-    if scheme != 'http' and scheme != 'https':
-        raise App400Error("bad url scheme")
-
-    headers = {}
-    # XXX Forward the Referer: that we received from the client, if any.
-
-    if scheme == 'http':
-        conn = httplib.HTTPConnection(host, timeout=25)
-    else:
-        conn = httplib.HTTPSConnection(host, timeout=25)
-
-    conn.request("GET", path, None, headers)
-    response = conn.getresponse()
-    # XXX A different return code for 201 and 204?
-    if response.status != 200:
-        raise App400Error("target error %d" % response.status)
-
-    typeval = response.getheader("Content-Type")
-    if typeval == None:
-        raise App400Error("target no type")
-    typestr = typeval.split(";")
-    if len(typestr) == 0:
-        raise App400Error("target type none")
-    if typestr[0] != 'text/html':
-        raise App400Error("target type %s" % typestr[0])
-
-    body = response.read(10000)
-    return body
+#class FetchParser(sgmllib.SGMLParser):
+#    def __init__(self, verbose=0):
+#        sgmllib.SGMLParser.__init__(self, verbose)
+#        self.in_title = False
+#        self.titlestr = None
+#    def start_title(self, attributes):
+#        self.in_title = True
+#    def end_title(self):
+#        self.in_title = False
+#    def handle_data(self, data):
+#        if self.in_title:
+#            self.titlestr = data
+#
+#def fetch_parse(chunk):
+#    parser = FetchParser()
+#    parser.feed(chunk)
+#    parser.close()
+#    if parser.titlestr == None:
+#        return "(none)"
+#    return parser.titlestr
+#
+## XXX This may need switching to urllib yet, if 301 redirects become a problem.
+#def fetch_body(url):
+#    # XXX Seriously, sanitize url before parsing
+#
+#    scheme, host, path, u_par, u_query, u_frag = urllib.parse.urlparse(url)
+#    if scheme != 'http' and scheme != 'https':
+#        raise App400Error("bad url scheme")
+#
+#    headers = {}
+#    # XXX Forward the Referer: that we received from the client, if any.
+#
+#    if scheme == 'http':
+#        conn = http.client.HTTPConnection(host, timeout=25)
+#    else:
+#        conn = http.client.HTTPSConnection(host, timeout=25)
+#
+#    conn.request("GET", path, None, headers)
+#    response = conn.getresponse()
+#    # XXX A different return code for 201 and 204?
+#    if response.status != 200:
+#        raise App400Error("target error %d" % response.status)
+#
+#    typeval = response.getheader("Content-Type")
+#    if typeval == None:
+#        raise App400Error("target no type")
+#    typestr = typeval.split(";")
+#    if len(typestr) == 0:
+#        raise App400Error("target type none")
+#    if typestr[0] != 'text/html':
+#        raise App400Error("target type %s" % typestr[0])
+#
+#    body = response.read(10000)
+#    return body
 
 
 class Application:
@@ -154,9 +151,13 @@ class Application:
         if not args:
             return {}
 
-        qdic = urlparse.parse_qs(args)
-        for key in qdic:
-            qdic[key] = qdic[key][0].decode("utf-8", 'replace')
+        qdic = {}
+        for key, value in urllib.parse.parse_qs(args).items():
+            if isinstance(key, bytes):
+                key = key.decode("utf-8", 'replace')
+            if isinstance(value[0], bytes):
+                value[0] = value[0].decode("utf-8", 'replace')
+            qdic[key] = value[0]
 
         return qdic
 
@@ -260,11 +261,11 @@ class Application:
             raise App404Error("Not found: " + self.path)
 
     def login_verify(self):
-        if not self.user.has_key('pass'):
+        if 'pass' not in self.user:
             return False
         if not self.cookies:
             return False
-        if not self.cookies.has_key('login'):
+        if 'login' not in self.cookies:
             return False
 
         (opdata, xhash) = self.cookies['login'].value.split(':')
@@ -280,7 +281,8 @@ class Application:
             return False
 
         coohash = hashlib.sha256()
-        coohash.update(self.user['pass'] + opdata)
+        hashdata = self.user['pass'] + opdata
+        coohash.update(hashdata.encode("utf-8"))
         if coohash.hexdigest() != xhash:
             return False
 
@@ -311,9 +313,9 @@ class Application:
         # We do not require every user to have a password, in order to have
         # archive users or other pseudo-users. They cannot login, even if they
         # fake the login cookies.
-        if not self.user.has_key('salt'):
+        if 'salt' not in self.user:
             raise AppError("User with no salt: " + self.user["name"])
-        if not self.user.has_key('pass'):
+        if 'pass' not in self.user:
             raise AppError("User with no password: " + self.user["name"])
 
         pwhash = hashlib.md5()
@@ -333,7 +335,8 @@ class Application:
         opdata = csalt + "," + flags + "," + nowstr
 
         coohash = hashlib.sha256()
-        coohash.update(self.user['pass'] + opdata)
+        hashdata = self.user['pass'] + opdata
+        coohash.update(hashdata.encode("utf-8"))
         # We use hex instead of base64 because it's easy to test in shell.
         mdstr = coohash.hexdigest()
 
@@ -348,7 +351,7 @@ class Application:
         return [slasti.template.template_html_redirect.substitute(jsondict)]
 
     def redirect_to_login(self):
-        thisref = self.path + '?' + urllib.quote_plus(self.query)
+        thisref = self.path + '?' + urllib.parse.quote_plus(self.query)
         login_loc = self.userpath + '/login?savedref=' + thisref
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
                             ('Location', slasti.safestr(login_loc))]
@@ -362,7 +365,7 @@ class Application:
         if not href:
             return []
         href = href.lower().strip()
-        user_parsed = urlparse.urlsplit(href)
+        user_parsed = urllib.parse.urlsplit(href)
 
         candidates = []
         for mark in self.base.get_marks():
@@ -371,7 +374,7 @@ class Application:
                 # exact match
                 return [mark]
 
-            mark_parsed = urlparse.urlparse(markurl)
+            mark_parsed = urllib.parse.urlparse(markurl)
             if user_parsed.netloc != mark_parsed.netloc:
                 # Different hosts - not our similar
                 continue
@@ -443,7 +446,7 @@ class Application:
         redihref = '%s/mark.%s' % (self.userpath, mark_str)
 
         response_headers = [('Content-type', 'text/html; charset=utf-8')]
-        response_headers.append(('Location', slasti.safestr(redihref)))
+        response_headers.append(('Location', redihref))
         self.respond("303 See Other", response_headers)
 
         jsondict = { "href_redir": redihref,

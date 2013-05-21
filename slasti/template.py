@@ -5,7 +5,7 @@
 # See file COPYING for licensing information (expect GPL 2).
 #
 
-from __future__ import unicode_literals
+
 
 import string
 import re
@@ -113,10 +113,10 @@ class DictWrapper:
     def _enforce_encoding(self, s):
         # handle HTML escaping stuff here
         # character encoding is done on the finished expanded template
-        if isinstance(s, unicode):
-            return escapeHTML(s)
         if isinstance(s, str):
-            print ("str found:", s)
+            return escapeHTML(s)
+        if isinstance(s, bytes):
+            print(("bytes found:", s))
             return s
         return s
 
@@ -345,9 +345,9 @@ class Template:
             return
         if d is None:
             return
-        if isinstance(d, unicode) or isinstance(d, int):
+        if isinstance(d, str) or isinstance(d, int):
             return
-        print "->", type(d), repr(d)
+        print("->", type(d), repr(d))
 
     def substitute(self, d):
         self._check_encoding(d)
@@ -604,7 +604,7 @@ template_simple_output = Template("""$output""")
 ## Run this file directly from the commandline to see the generated html
 ## for some sample input
 def main():
-    print "Sample output:"
+    print("Sample output:")
     example = {
             "href_user": "/user",
             "name_user": "username",
@@ -637,7 +637,7 @@ def main():
             "href_page_prev": "/user/prev",
             "href_page_this": "/user/this",
     }
-    print template_html_page.substitute(example)
+    print(template_html_page.substitute(example))
 
 if __name__ == '__main__':
     main()

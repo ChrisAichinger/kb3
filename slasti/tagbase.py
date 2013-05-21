@@ -4,8 +4,8 @@
 # Copyright (C) 2011 Pete Zaitcev
 # See file COPYING for licensing information (expect GPL 2).
 #
-from __future__ import unicode_literals
-from __future__ import print_function
+
+
 
 import os
 import time
@@ -18,12 +18,6 @@ import slasti
 
 def split_marks(tagstr):
     return [t for t in tagstr.split(' ') if t]
-
-def unicode_dict(d):
-    result = {}
-    for key in d.keys():
-        result[unicode(key)] = d[key]
-    return result
 
 class DBMark:
     def __init__(self, from_dict=None):
@@ -57,8 +51,8 @@ class DBMark:
         mark_url = '%s/mark.%s' % (path_prefix, self.key_str())
         ts = time.gmtime(self.time)
         jsondict = {
-            "date": unicode(time.strftime("%Y-%m-%d", ts)),
-            "xmldate": unicode(time.strftime("%Y-%m-%dT%H:%M:%SZ", ts)),
+            "date": time.strftime("%Y-%m-%d", ts),
+            "xmldate": time.strftime("%Y-%m-%dT%H:%M:%SZ", ts),
             "href_mark": mark_url,
             "href_mark_url": slasti.escapeURL(self.url),
             "xmlhref_mark_url": cgi.escape(self.url, True),
@@ -198,7 +192,7 @@ class SlastiDB:
         self.dbconn.commit()
 
     def _mark_from_dbrow(self, row):
-        d = unicode_dict(row)
+        d = dict(row)
         tag_list = self.dbconn.execute(
                       """SELECT tags.tag FROM tags
                                 JOIN mark_tags USING (tag_id)

@@ -9,7 +9,7 @@ import string
 import json
 import types
 import sys
-import Cookie
+import http.cookies
 
 # CFGUSERS was replaced by  SetEnv slasti.userconf /slasti-users.conf
 CFGUSERS = "slasti-users.conf"
@@ -29,12 +29,12 @@ class UserBase:
     def open(self, userconf):
         try:
             fp = open(userconf, 'r')
-        except IOError, e:
+        except IOError as e:
             raise AppError(str(e))
 
         try:
             self.users = json.load(fp)
-        except ValueError, e:
+        except ValueError as e:
             raise AppError(str(e))
 
         fp.close()
@@ -43,19 +43,19 @@ class UserBase:
         # sure that configuration makes sense structurally and that correct
         # fields are present. Using helpful ideas by Andrew "Pixy" Maizels.
 
-        if not (type(self.users) is types.ListType):
+        if not (type(self.users) is list):
             raise AppError("Configuration is not a list [...]")
 
         for u in self.users:
-            if not (type(u) is types.DictType):
+            if not (type(u) is dict):
                 raise AppError("Configured user is not a dictionary {...}")
 
-            if not u.has_key('name'):
+            if 'name' not in u:
                 raise AppError("User with no name")
-            if not u.has_key('type'):
+            if 'type' not in u:
                 raise AppError("User with no type: "+u['name'])
             # Check 'root' for type 'fs' only in the future.
-            if not u.has_key('root'):
+            if 'root' not in u:
                 raise AppError("User with no root: "+u['name'])
 
     def lookup(self, name):
@@ -89,7 +89,7 @@ def do_file(environ, start_response, fname):
         raise AppGetError(method)
 
     start_response("200 OK", [('Content-type', 'text/plain')])
-    return [file("static_files/" + fname).read()]
+    return [open("static_files/" + fname).read()]
 
 ## Based on James Gardner's environ dump.
 #def do_environ(environ, start_response):
@@ -117,9 +117,9 @@ def do_file(environ, start_response, fname):
 def do_user(environ, start_response, path):
     # We will stop reloading UserBase on every call once we figure out how.
     users = UserBase()
-    if not environ.has_key('slasti.userconf'):
+    if 'slasti.userconf' not in environ:
         environ['slasti.userconf'] = CFGUSERS
-    if not environ.has_key('slasti.userconf'):
+    if 'slasti.userconf' not in environ:
         raise AppError("No environ 'slasti.userconf'")
     users.open(environ['slasti.userconf'])
 
@@ -154,7 +154,7 @@ def do_user(environ, start_response, path):
         pinput = None
 
     # Query is already split away by the CGI.
-    parsed = string.split(path, "/", 2)
+    parsed = path.split("/", 2)
 
     user = users.lookup(parsed[1])
     if user == None:
@@ -172,12 +172,12 @@ def do_user(environ, start_response, path):
     except KeyError:
         q = None
 
-    c = Cookie.SimpleCookie()
+    c = http.cookies.SimpleCookie()
     try:
         c.load(environ['HTTP_COOKIE'])
-    except Cookie.CookieError, e:
+    except http.cookies.CookieError as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
-        return ["400 Bad Cookie: "+slasti.safestr(unicode(e))+"\r\n"]
+        return ["400 Bad Cookie: "+slasti.safestr(str(e))+"\r\n"]
     except KeyError:
         c = None
 
@@ -195,20 +195,19 @@ def application(environ, start_response):
     # os.environ["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
 
     path = environ['PATH_INFO']
-    if isinstance(path, basestring):
-        if not isinstance(path, unicode):
-            try:
-                path = unicode(path, 'utf-8')
-            except UnicodeDecodeError:
-                start_response("400 Bad Request",
-                               [('Content-type', 'text/plain')])
-                return ["400 Unable to decode UTF-8 in path\r\n"]
+    if path and not isinstance(path, str):
+        try:
+            path = str(path, 'utf-8')
+        except UnicodeDecodeError:
+            start_response("400 Bad Request",
+                           [('Content-type', 'text/plain')])
+            return ["400 Unable to decode UTF-8 in path\r\n"]
 
     try:
         stripped_path = path.strip(' ').strip('/')
         static_files = ["edit.js", "style.css", "slasti.js", "jquery.js",
                         "showdown.js"]
-        if path == None or path == "" or path == "/":
+        if not path or path == "/":
             output = do_root(environ, start_response)
         elif stripped_path in static_files:
             output = do_file(environ, start_response, stripped_path)
@@ -223,30 +222,30 @@ def application(environ, start_response):
             safeout.append(slasti.safestr(s))
         return safeout
 
-    except AppError, e:
+    except AppError as e:
         start_response("500 Internal Error", [('Content-type', 'text/plain')])
-        return [slasti.safestr(unicode(e)), "\r\n"]
-    except slasti.App400Error, e:
+        return [slasti.safestr(str(e)), b"\r\n"]
+    except slasti.App400Error as e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
-        return ["400 Bad Request: %s\r\n" % slasti.safestr(unicode(e))]
-    except slasti.AppLoginError, e:
+        return [b"400 Bad Request: ", slasti.safestr(str(e)), b"\r\n"]
+    except slasti.AppLoginError as e:
         start_response("403 Not Permitted", [('Content-type', 'text/plain')])
-        return ["403 Not Logged In\r\n"]
-    except App404Error, e:
+        return [b"403 Not Logged In\r\n"]
+    except App404Error as e:
         start_response("404 Not Found", [('Content-type', 'text/plain')])
-        return [slasti.safestr(unicode(e)), "\r\n"]
-    except AppGetError, e:
+        return [slasti.safestr(str(e)), b"\r\n"]
+    except AppGetError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'GET')])
-        return ["405 Method %s not allowed\r\n" % slasti.safestr(unicode(e))]
-    except slasti.AppPostError, e:
+        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
+    except slasti.AppPostError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'POST')])
-        return ["405 Method %s not allowed\r\n" % slasti.safestr(unicode(e))]
-    except slasti.AppGetPostError, e:
+        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
+    except slasti.AppGetPostError as e:
         start_response("405 Method Not Allowed",
                        [('Content-type', 'text/plain'), ('Allow', 'GET, POST')])
-        return ["405 Method %s not allowed\r\n" % slasti.safestr(unicode(e))]
+        return [b"405 Method " + slasti.safestr(str(e)) + b" not allowed\r\n"]
 
 # We do not have __main__ in WSGI.
 # if __name__.startswith('_mod_wsgi_'):
