@@ -107,6 +107,8 @@ class Application:
             return {}
 
         qdic = {}
+        if isinstance(args, bytes):
+            args = args.decode("utf-8")
         for key, value in urllib.parse.parse_qs(args).items():
             if isinstance(key, bytes):
                 key = key.decode("utf-8", 'replace')
