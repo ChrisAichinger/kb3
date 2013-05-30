@@ -1,0 +1,12 @@
+## -*- coding: utf-8 -*-
+<%! import time %>
+<?xml version="1.0" encoding="UTF-8"?>
+<posts user="${s_username}" tag="">
+% for mark in marks:
+    <post href="${mark.url | filter.attr}"
+          description="${mark.title or mark.url | filter.attr}"
+          tag="${' '.join(mark.tags) | filter.attr}"
+          time="${time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(mark.time))}"
+          extended="${mark.note or '' | filter.attr}" />
+% endfor
+</posts>

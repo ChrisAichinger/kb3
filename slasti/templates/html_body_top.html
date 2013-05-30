@@ -1,0 +1,37 @@
+## -*- coding: utf-8 -*-
+<table class="bar_top">
+<tr valign="top">
+    <td align="left">
+        <h2 class="username">
+            <a href="${s_userurl}">${s_username}</a> /
+            % if href_current_tag:
+                <a href="${href_current_tag | filter.attr}">
+            % endif
+            % if current_tag:
+                ${current_tag | filter.html}
+            % else:
+                &#9733;
+            % endif
+            % if href_current_tag:
+                </a>
+            % endif
+        </h2>
+    </td>
+    <td align="right">
+        % if show_login:
+            [<a href="${href_login | filter.attr}">login</a>]
+        % endif
+        [<b><a href="${s_userurl}/tags">tags</a></b>]
+        [<a href="${s_userurl}/new">new</a>]
+        % if show_export:
+            [<a href="${s_userurl}/export.xml">e</a>]
+        % else:
+            [e]
+        % endif
+        Search:
+        <form method="GET" action="${s_userurl}/search">
+        <input type="text" name="q" value="${val_search or '' | filter.attr}" />
+        <input type="submit" value="Go" />
+        </form>
+    </td>
+</tr></table>

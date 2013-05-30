@@ -1,0 +1,30 @@
+## -*- coding: utf-8 -*-
+<%! import time %>
+<%include file="html_header.html"/>
+<%include file="html_body_top.html"/>
+% for mark in marks:
+    <div class="bookmark">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
+      [<a href="${s_userurl}/mark.${mark.key_str()}">&#9734;</a>]
+      <a href="${mark.url | filter.attr}">${mark.title | filter.html}</a><br />
+      % if mark.note:
+          <div class="note">${mark.note | filter.html}</div>
+      % endif
+      % for tag in mark.tags:
+          % if tag:
+          <a href="${s_userurl}/${tag | filter.attr}/"
+                  >${tag | filter.html}</a>
+          % else:
+              -
+          % endif
+      % endfor
+      % if not mark.tags:
+      -
+      % endif
+      %if show_edit:
+          <p>
+          [<a href="${s_userurl}/edit?mark=${mark.key_str()}">edit</a>]
+          </p>
+      %endif
+    </div>
+% endfor
+<%include file="html_body_bottom.html"/>

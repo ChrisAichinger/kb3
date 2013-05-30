@@ -20,9 +20,13 @@ def split_marks(tagstr):
     return [t for t in tagstr.split(' ') if t]
 
 class DBMark:
-    def __init__(self, from_dict=None):
+    def __init__(self, from_dict=None, title=None, url=None, tags=None, note=None):
         if from_dict is None:
-            raise AppError("Loading TagMark from DB is not supported yet")
+            self.title = title
+            self.url = url
+            self.tags = tags
+            self.note = note
+            return
 
         self.id = from_dict["mark_id"]
         self.title = from_dict["title"]
@@ -42,37 +46,6 @@ class DBMark:
 
     def key_str(self):
         return str(self.id)
-
-    def to_jsondict(self, path_prefix):
-        title = self.title
-        if not title:
-            title = self.url
-
-        mark_url = '%s/mark.%s' % (path_prefix, self.key_str())
-        ts = time.gmtime(self.time)
-        jsondict = {
-            "date": time.strftime("%Y-%m-%d", ts),
-            "xmldate": time.strftime("%Y-%m-%dT%H:%M:%SZ", ts),
-            "href_mark": mark_url,
-            "href_mark_url": slasti.escapeURL(self.url),
-            "xmlhref_mark_url": cgi.escape(self.url, True),
-            "title": title,
-            "note": self.note,
-            "tags": [],
-            "key": self.key_str(),
-        }
-
-        tags_str = []
-        for tag in self.tags:
-            tags_str.append(tag)
-            jsondict["tags"].append(
-                {"href_tag": '%s/%s/' % (path_prefix,
-                                         slasti.escapeURLComponent(tag)),
-                 "name_tag": tag,
-                })
-        jsondict["tags_str"] = ' '.join(tags_str)
-
-        return jsondict
 
     def contains(self, string):
         """Search text string in mark - return True if found, else False

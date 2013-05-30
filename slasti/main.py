@@ -36,11 +36,6 @@ def list_get_default(lst, index, default=None):
     except IndexError:
         return default
 
-def url_mark_edit(mark, path):
-    if mark is None:
-        return None
-    return '%s/edit?mark=%s' % (path, mark.key_str())
-
 def url_mark(mark, path):
     if mark is None:
         return None
@@ -119,19 +114,19 @@ class Application:
         return qdic
 
     def create_jsondict(self):
-        jsondict = {"name_user": self.user["name"],
-                    "href_user": self.userpath,
-                    "href_prefix": self.basepath,
-                    "href_tags": "%s/tags" % self.userpath,
-                    "href_new": "%s/new" % self.userpath,
-                    "action_search": "%s/search" % self.userpath,
+        jsondict = {
+                    "s_baseurl": self.basepath,
+                    "s_userurl": self.userpath,
+                    "s_username": self.user["name"],
                    }
         if self.is_logged_in:
-            jsondict["href_export"]= self.userpath + '/export.xml'
-            jsondict["href_login"] = None
+            jsondict["show_export"] = True
+            jsondict["show_login"] = False
         else:
-            jsondict["href_export"]= None
-            jsondict["href_login"] = "%s/login" % self.userpath
+            jsondict["show_export"] = False
+            jsondict["show_login"] = True
+
+            jsondict["href_login"] = self.userpath + '/login'
             if self.path and self.path != "login" and self.path != "edit":
                 jsondict["href_login"] += '?savedref=%s' % self.path
         return jsondict
@@ -176,7 +171,7 @@ class Application:
             "": {
                 "GET": (auth_none, lambda: self.root_generic_html(tag=None)),
                 },
-            "export": {
+            "export.xml": {
                 "GET": (auth_force, self.full_mark_xml),
                 },
             "tags": {
@@ -214,7 +209,7 @@ class Application:
                 return self.one_mark_html(mark_id)
             if self.path.startswith("page."):
                 mark_id = self.path.split('.', 1)[1]
-                return self.one_mark_html(mark_id, tag=None)
+                return self.page_generic_html(mark_id, tag=None)
             raise App404Error("Not found: " + self.path)
 
     def login_verify(self):
@@ -247,13 +242,12 @@ class Application:
 
     def login_form(self):
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-        jsondict = {
-                "href_prefix": self.basepath,
-                "username": self.user['name'],
-                "action_login": "%s/login" % self.userpath,
+        jsondict = self.create_jsondict()
+        jsondict.update({
+                "s_action_login": "%s/login" % self.userpath,
                 "savedref": self.get_query_arg("savedref"),
-                }
-        return [slasti.template.template_html_login.substitute(jsondict)]
+                })
+        return [slasti.template.render("html_login.html", jsondict)]
 
     def login_post(self):
         savedref = self.get_pinput_arg("savedref")
@@ -284,7 +278,7 @@ class Application:
             self.respond("403 Not Permitted",
                          [('Content-type', 'text/plain; charset=utf-8')])
             jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
-            return [slasti.template.template_simple_output.substitute(jsondict)]
+            return [slasti.template.render("simple_output.txt", jsondict)]
 
         csalt = base64.b64encode(os.urandom(6))
         flags = "-"
@@ -303,9 +297,9 @@ class Application:
         response_headers.append(('Location', redihref))
         self.respond("303 See Other", response_headers)
 
-        jsondict = { "href_redir": redihref,
-                     "href_prefix": self.basepath }
-        return [slasti.template.template_html_redirect.substitute(jsondict)]
+        jsondict = self.create_jsondict()
+        jsondict["href_redir"] = self.redihref
+        return [slasti.template.render("html_redirect.html", jsondict)]
 
     def redirect_to_login(self):
         thisref = self.path + '?' + urllib.parse.quote_plus(self.query)
@@ -314,9 +308,9 @@ class Application:
                             ('Location', login_loc)]
         self.respond("303 See Other", response_headers)
 
-        jsondict = { "href_redir": login_loc,
-                     "href_prefix": self.basepath }
-        return [slasti.template.template_html_redirect.substitute(jsondict)]
+        jsondict = self.create_jsondict()
+        jsondict["href_redir"] = login_loc
+        return [slasti.template.render("html_redirect.html", jsondict)]
 
     def find_similar_marks(self, href):
         if not href:
@@ -352,18 +346,14 @@ class Application:
 
         jsondict = self.create_jsondict()
         jsondict.update({
-                "id_title": "title1",
-                "id_button": "button1",
-                "href_fetch": self.userpath + '/fetchtitle',
-                "mark": None,
+                "mark": tagbase.DBMark(title=title, url=href),
                 "current_tag": "[" + WHITESTAR + "]",
-                "action_edit": self.userpath + '/edit',
-                "val_title": title,
-                "val_href": href,
-                "similar_marks": [m.to_jsondict(self.userpath) for m in similar],
+                "s_action_edit": self.userpath + '/edit',
+                "s_action_delete": None,
+                "similar_marks": similar,
             })
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-        return [slasti.template.template_html_editform.substitute(jsondict)]
+        return [slasti.template.render("html_editform.html", jsondict)]
 
     def edit_form(self):
         mark_str = self.get_query_arg("mark")
@@ -373,22 +363,15 @@ class Application:
 
         jsondict = self.create_jsondict()
         jsondict.update({
-            "id_title": "title1",
-            "id_button": "button1",
-            "href_fetch": self.userpath + '/fetchtitle',
-            "mark": mark.to_jsondict(self.userpath),
+            "mark": mark,
             "current_tag": WHITESTAR,
             "href_current_tag": url_mark(mark, self.userpath),
-            "action_edit": url_mark(mark, self.userpath),
-            "action_delete": self.userpath + '/delete',
-            "val_title": mark.title,
-            "val_href": mark.url,
-            "val_tags": ' '.join(mark.tags),
-            "val_note": mark.note,
+            "s_action_edit": url_mark(mark, self.userpath),
+            "s_action_delete": self.userpath + '/delete',
             })
 
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-        return [slasti.template.template_html_editform.substitute(jsondict)]
+        return [slasti.template.render('html_editform.html', jsondict)]
 
     # The name edit_post() is a bit misleading, because POST to /edit is used
     # to create new marks, not to edit existing ones (see mark_post() for that).
@@ -406,16 +389,16 @@ class Application:
         response_headers.append(('Location', redihref))
         self.respond("303 See Other", response_headers)
 
-        jsondict = { "href_redir": redihref,
-                     "href_prefix": self.basepath }
-        return [slasti.template.template_html_redirect.substitute(jsondict)]
+        jsondict = self.create_jsondict()
+        jsondict["href_redir"] = redihref
+        return [slasti.template.render("html_redirect.html", jsondict)]
 
     def delete_post(self):
         self.base.delete(self.base.lookup(self.get_pinput_arg("mark")))
 
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
-        return [slasti.template.template_html_delete.substitute(jsondict)]
+        return [slasti.template.render("html_delete.html", jsondict)]
 
     def page_any_html(self, mark_top, mark_list, what,
                       jsondict_extra, linkmaker):
@@ -434,23 +417,25 @@ class Application:
         jsondict = self.create_jsondict()
         jsondict.update({
                 "current_tag": what,
-                "marks": [m.to_jsondict(self.userpath) for m in output_marks],
+                "marks": [m for m in output_marks],
+                "show_edit": False,
 
                 "href_page_prev": linkmaker(mark_prev),
                 "href_page_this": linkmaker(mark_top),
                 "href_page_next": linkmaker(mark_next),
                 })
         jsondict.update(jsondict_extra)
-        return [slasti.template.template_html_page.substitute(jsondict)]
+        return [slasti.template.render('html_mark.html', jsondict)]
 
     def page_empty_html(self):
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict.update({
+                    "show_edit": False,
                     "current_tag": "[-]",
                     "marks": [],
                    })
-        return [slasti.template.template_html_page.substitute(jsondict)]
+        return [slasti.template.render('html_mark.html', jsondict)]
 
     # full_mark_html() would be a Netscape bookmarks file, perhaps.
     def full_mark_xml(self):
@@ -458,11 +443,9 @@ class Application:
             raise AppGetError(self.method)
 
         self.respond("200 OK", [('Content-type', 'text/xml; charset=utf-8')])
-        jsondict = { "marks": [], "name_user": self.user['name'] }
-        for mark in self.base.get_marks():
-            jsondict["marks"].append(mark.to_jsondict(self.userpath))
-
-        return [slasti.template.template_xml_export.substitute(jsondict)]
+        jsondict = self.create_jsondict()
+        jsondict["marks"] = self.base.get_marks()
+        return [slasti.template.render('xml_export.xml', jsondict)]
 
     def full_tag_html(self):
         if self.method != 'GET':
@@ -471,15 +454,8 @@ class Application:
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict["current_tag"] = "tags"
-        jsondict["tags"] = []
-        for tag in self.base.get_tags():
-            jsondict["tags"].append(
-                {"href_tag": '%s/%s/' % (self.userpath,
-                                         slasti.escapeURLComponent(tag.name)),
-                 "name_tag": tag.name,
-                 "num_tagged": tag.num_marks,
-                })
-        return [slasti.template.template_html_tags.substitute(jsondict)]
+        jsondict["tags"] = self.base.get_tags()
+        return [slasti.template.render("html_tags.html", jsondict)]
 
     def full_search_html(self):
         if self.method != 'GET':
@@ -492,8 +468,9 @@ class Application:
                                 ('Location', self.userpath)]
             self.respond("303 See Other", response_headers)
 
-            jsondict = { "href_redir": self.userpath }
-            return [slasti.template.template_html_redirect.substitute(jsondict)]
+            jsondict = self.create_jsondict()
+            jsondict["href_redir"] = self.userpath
+            return [slasti.template.render("html_redirect.html", jsondict)]
 
         marks = [m for m in self.base.get_marks() if m.contains(query)]
 
@@ -535,13 +512,13 @@ class Application:
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
         jsondict.update({
-                  "marks": [mark.to_jsondict(self.userpath)],
-                  "href_edit": url_mark_edit(mark, self.userpath),
+                  "marks": [mark],
+                  "show_edit": True,
                   "href_page_prev": url_mark(mark_prev, self.userpath),
                   "href_page_this": url_mark(mark, self.userpath),
                   "href_page_next": url_mark(mark_next, self.userpath),
                  })
-        return [slasti.template.template_html_mark.substitute(jsondict)]
+        return [slasti.template.render("html_mark.html", jsondict)]
 
     # The server-side indirection requires extreme care to prevent abuse.
     # User may hit us with URLs that point to generated pages, slow servers,..
@@ -554,7 +531,7 @@ class Application:
 
         self.respond("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
         jsondict = { "output": '%s\r\n' % title }
-        return [slasti.template.template_simple_output.substitute(jsondict)]
+        return [slasti.template.render("simple_output.txt", jsondict)]
 
     def one_mark_html(self, mark_str):
         mark = self.base.lookup(mark_str)
