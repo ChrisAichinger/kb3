@@ -28,6 +28,22 @@ import slasti.template
 PAGESZ = 25
 WHITESTAR = "\u2606"
 
+
+def b64encode(string):
+    return base64.b64encode(string.encode("utf-8"), b'-_')
+
+def b64decode(b64string):
+    try:
+        return base64.b64decode(b64string, b'-_', validate=True).decode("utf-8")
+    except (base64.binascii.Error, UnicodeDecodeError):
+        return ""
+
+def b64validate(b64string):
+    if base64decode(b64string) == "":
+        return ""
+    return b64string
+
+
 def list_get_default(lst, index, default=None):
     if index < 0:
         return default
@@ -128,7 +144,8 @@ class Application:
 
             jsondict["href_login"] = self.userpath + '/login'
             if self.path and self.path != "login" and self.path != "edit":
-                jsondict["href_login"] += '?savedref=%s' % self.path
+                savedref = b64encode(self.path)
+                jsondict["href_login"] += '?savedref=%s' % savedref
         return jsondict
 
     def process_request(self):
@@ -243,20 +260,14 @@ class Application:
     def login_form(self):
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
+
         jsondict.update({
                 "s_action_login": "%s/login" % self.userpath,
-                "savedref": self.get_query_arg("savedref"),
+                "savedref": b64validate(self.get_query_arg("savedref")),
                 })
         return [slasti.template.render("html_login.html", jsondict)]
 
     def login_post(self):
-        savedref = self.get_pinput_arg("savedref")
-        if savedref:
-            savedref = savedref.decode("utf-8", 'replace')
-            redihref = "%s/%s" % (self.userpath, savedref)
-        else:
-            redihref = "%s/" % self.userpath;
-
         password = self.get_pinput_arg("password")
         if not password:
             raise App400Error("bad password tag")
@@ -291,6 +302,12 @@ class Application:
         # We use hex instead of base64 because it's easy to test in shell.
         mdstr = coohash.hexdigest()
 
+        savedref = b64decode(self.get_pinput_arg("savedref"))
+        if savedref:
+            redihref = "%s/%s" % (self.userpath, savedref)
+        else:
+            redihref = "%s/" % self.userpath
+
         response_headers = [('Content-type', 'text/html; charset=utf-8')]
         # Set an RFC 2901 cookie (not RFC 2965).
         response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
@@ -298,18 +315,18 @@ class Application:
         self.respond("303 See Other", response_headers)
 
         jsondict = self.create_jsondict()
-        jsondict["href_redir"] = self.redihref
+        jsondict["us_redirect"] = redihref
         return [slasti.template.render("html_redirect.html", jsondict)]
 
     def redirect_to_login(self):
-        thisref = self.path + '?' + urllib.parse.quote_plus(self.query)
-        login_loc = self.userpath + '/login?savedref=' + thisref
+        savedref = self.path + '?' + urllib.parse.quote_plus(self.query)
+        login_loc = self.userpath + '/login?savedref=' + b64encode(savedref)
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
                             ('Location', login_loc)]
         self.respond("303 See Other", response_headers)
 
         jsondict = self.create_jsondict()
-        jsondict["href_redir"] = login_loc
+        jsondict["us_redirect"] = login_loc
         return [slasti.template.render("html_redirect.html", jsondict)]
 
     def find_similar_marks(self, href):
@@ -390,7 +407,7 @@ class Application:
         self.respond("303 See Other", response_headers)
 
         jsondict = self.create_jsondict()
-        jsondict["href_redir"] = redihref
+        jsondict["us_redirect"] = redihref
         return [slasti.template.render("html_redirect.html", jsondict)]
 
     def delete_post(self):
@@ -469,7 +486,7 @@ class Application:
             self.respond("303 See Other", response_headers)
 
             jsondict = self.create_jsondict()
-            jsondict["href_redir"] = self.userpath
+            jsondict["us_redirect"] = self.userpath
             return [slasti.template.render("html_redirect.html", jsondict)]
 
         marks = [m for m in self.base.get_marks() if m.contains(query)]
