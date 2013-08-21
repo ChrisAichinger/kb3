@@ -30,16 +30,18 @@ WHITESTAR = "\u2606"
 
 
 def b64encode(string):
-    return base64.b64encode(string.encode("utf-8"), b'-_')
+    return base64.b64encode(string.encode("utf-8"), b'-_').decode()
 
 def b64decode(b64string):
+    if isinstance(b64string, str):
+        b64string = b64string.encode("utf-8")
     try:
         return base64.b64decode(b64string, b'-_', validate=True).decode("utf-8")
-    except (base64.binascii.Error, UnicodeDecodeError):
+    except (base64.binascii.Error, UnicodeDecodeError, TypeError):
         return ""
 
 def b64validate(b64string):
-    if base64decode(b64string) == "":
+    if not b64string or not b64decode(b64string):
         return ""
     return b64string
 
@@ -281,7 +283,7 @@ class Application:
             raise AppError("User with no password: " + self.user["name"])
 
         pwhash = hashlib.md5()
-        pwhash.update(self.user['salt'] + password)
+        pwhash.update((self.user['salt'] + password).encode("utf-8"))
         pwstr = pwhash.hexdigest()
 
         # We operate on a hex of the salted password's digest, to avoid parsing.
@@ -291,7 +293,7 @@ class Application:
             jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
             return [slasti.template.render("simple_output.txt", jsondict)]
 
-        csalt = base64.b64encode(os.urandom(6))
+        csalt = base64.b64encode(os.urandom(6)).decode("utf-8")
         flags = "-"
         nowstr = "%d" % int(time.time())
         opdata = csalt + "," + flags + "," + nowstr
