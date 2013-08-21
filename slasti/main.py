@@ -321,7 +321,7 @@ class Application:
         return [slasti.template.render("html_redirect.html", jsondict)]
 
     def redirect_to_login(self):
-        savedref = self.path + '?' + urllib.parse.quote_plus(self.query)
+        savedref = self.path + '?' + self.query
         login_loc = self.userpath + '/login?savedref=' + b64encode(savedref)
         response_headers = [('Content-type', 'text/html; charset=utf-8'),
                             ('Location', login_loc)]
