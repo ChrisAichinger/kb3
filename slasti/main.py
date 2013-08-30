@@ -423,11 +423,15 @@ class Application:
                       jsondict_extra, linkmaker):
 
         mark_list = list(mark_list)
-        index = mark_list.index(mark_top)
-        if index <= 0:
-            mark_prev = None
+        if mark_top:
+            index = mark_list.index(mark_top)
+            if index <= 0:
+                mark_prev = None
+            else:
+                mark_prev = mark_list[max(0, index - PAGESZ)]
         else:
-            mark_prev = mark_list[max(0, index - PAGESZ)]
+            index = 0
+            mark_prev = None
         mark_next = list_get_default(mark_list, index + PAGESZ, default=None)
 
         output_marks = mark_list[index : index + PAGESZ]
@@ -501,7 +505,7 @@ class Application:
             if mark not in marks:
                 raise App404Error("Bookmark not in results list: " + mark_str)
         else:
-            mark = marks[0]
+            mark = None  # Start at first mark
 
         return self.page_any_html(
                 mark, marks,
