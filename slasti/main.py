@@ -200,6 +200,12 @@ class Application:
                 "GET": (auth_none, self.full_search_html),
                 },
         }
+        if self.user.get('private', False) and not self.is_logged_in:
+            if self.path != 'login':
+                if self.method == 'GET':
+                    return self.redirect_to_login()
+                raise AppLoginError()
+
         if self.path in commands:
             if not self.method in commands[self.path]:
                 raise AppGetPostError(self.method)
