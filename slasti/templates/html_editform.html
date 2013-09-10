@@ -59,7 +59,7 @@
     % for smark in similar_marks:
     <li>
         ${time.strftime('%Y-%m-%d', time.gmtime(smark.time))}
-        [<a href="${s_username}/mark.${smark.key_str()}">&#9734;</a>]
+        [<a href="mark.${smark.key_str()}">&#9734;</a>]
         <a href="${smark.url | filter.attr}"
             >${smark.title or smark.url | filter.html}</a>
     </li>
