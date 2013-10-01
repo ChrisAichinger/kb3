@@ -9,7 +9,10 @@ import string
 import json
 import types
 import sys
+import os
 import http.cookies
+import email.utils
+import time
 
 # CFGUSERS was replaced by  SetEnv slasti.userconf /slasti-users.conf
 CFGUSERS = "slasti-users.conf"
@@ -83,13 +86,49 @@ def do_root(environ, start_response):
     return ["Slasti: The Anti-Social Bookmarking\r\n",
             "(https://github.com/zaitcev/slasti)\r\n"]
 
+def parse_http_date(httpdate):
+    if not httpdate:
+        return None
+
+    emaildate = email.utils.parsedate(httpdate)
+    if not emaildate:
+        # Failed parsing the date
+        return None
+
+    # Result: (year, month, day, hour, min, sec)
+    return emaildate[:6]
+
 def do_file(environ, start_response, fname):
     method = environ['REQUEST_METHOD']
     if method != 'GET':
         raise AppGetError(method)
 
-    start_response("200 OK", [('Content-type', 'text/plain')])
-    return [open("slasti/static_files/" + fname).read()]
+    fpath = "slasti/static_files/" + fname
+    last_modified = time.gmtime(os.stat(fpath).st_mtime)
+
+    # Check for if-modified-since header and answer accordingly
+    if_modified_since = environ.get('HTTP_IF_MODIFIED_SINCE', None)
+    if_modified_since = parse_http_date(if_modified_since)
+    if if_modified_since == last_modified[:6]:
+        # Browser has a cached copy which is still up-to-date
+        start_response("304 Not Modified", [('Content-type', 'text/plain')])
+        return [b'\r\n']
+
+    headers = [('Content-type', 'text/plain')]
+
+    max_age = 30 * 24 * 3600  # 30 days
+    expires = time.time() + max_age
+    expires_str = time.strftime("%a, %d-%b-%Y %T %Z", time.gmtime(expires))
+    headers.append(('Expires', expires_str))
+
+    mod_str = time.strftime("%a, %d-%b-%Y %T %Z", last_modified)
+    headers.append(('Last-Modified', mod_str))
+
+    # Enable caching in Firefox when serving over HTTPS
+    headers.append(('Cache-control', 'public, max-age={}'.format(max_age)))
+
+    start_response("200 OK", headers)
+    return [open(fpath).read()]
 
 ## Based on James Gardner's environ dump.
 #def do_environ(environ, start_response):
