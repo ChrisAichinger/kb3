@@ -227,7 +227,7 @@ class Application:
             if not page.startswith("page."):
                 raise App404Error("Not found: " + self.path)
             p = page.split(".", 1)[1]
-            return self.page_generic_html(p[1], tag)
+            return self.page_generic_html(p, tag)
         else:
             if self.path.startswith("mark."):
                 mark_id = self.path.split('.', 1)[1]
