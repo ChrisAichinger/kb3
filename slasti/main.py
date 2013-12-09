@@ -490,7 +490,7 @@ class Application:
         if self.method != 'GET':
             raise AppGetError(self.method)
 
-        query = self.get_query_arg('q')
+        query = self.get_query_arg('q').strip()
         if not query:
             # If q is missing/empty (e.g. search for ""), redirect to homepage
             response_headers = [('Content-type', 'text/html; charset=utf-8'),
@@ -501,7 +501,14 @@ class Application:
             jsondict["us_redirect"] = self.userpath
             return [slasti.template.render("html_redirect.html", jsondict)]
 
-        marks = [m for m in self.base.get_marks() if m.contains(query)]
+        marks = self.base.get_marks()
+        for needle in query.split(' '):
+            if not needle:
+                continue
+            if needle.startswith('tag:'):
+                marks = [m for m in marks if needle[4:] in m.tags]
+            else:
+                marks = [m for m in marks if m.contains(needle)]
 
         mark_str = self.get_query_arg('firstmark')
         if mark_str:
