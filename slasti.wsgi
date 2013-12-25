@@ -17,8 +17,8 @@ import time
 # CFGUSERS was replaced by  SetEnv slasti.userconf /slasti-users.conf
 CFGUSERS = "slasti-users.conf"
 
-# Replaced by  WSGIDaemonProcess slasti python-path=/usr/lib/slasti-mod
-# sys.path = sys.path + [ '/usr/lib/slasti-mod' ]
+# Can replace with WSGIDaemonProcess slasti python-path=/usr/lib/slasti-mod
+sys.path.append(os.path.dirname(__file__))
 import slasti
 from slasti import AppError, App404Error, AppGetError
 
