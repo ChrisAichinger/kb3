@@ -7,25 +7,25 @@
 
 
 
+import sys
+import os
 import time
 import urllib.request, urllib.parse, urllib.error
 import difflib
-import cgi
 import base64
-import os
 import hashlib
-import http.client
 
 # Beautifulsoup 4.x dependency
 from bs4 import BeautifulSoup
 
+import slasti
+import slasti.template
 from slasti import AppError, App400Error, AppLoginError, App404Error
 from slasti import AppGetError, AppGetPostError
-import slasti
-from . import tagbase
-import slasti.template
 
-PAGESZ = 25
+from . import tagbase
+
+PAGESZ = 45
 WHITESTAR = "\u2606"
 
 
@@ -428,19 +428,24 @@ class Application:
     def page_any_html(self, mark_top, mark_list, what,
                       jsondict_extra, linkmaker):
 
+        if self.get_query_arg('nopage') == '1':
+            pagesize = sys.maxsize
+        else:
+            pagesize = PAGESZ
+
         mark_list = list(mark_list)
         if mark_top:
             index = mark_list.index(mark_top)
             if index <= 0:
                 mark_prev = None
             else:
-                mark_prev = mark_list[max(0, index - PAGESZ)]
+                mark_prev = mark_list[max(0, index - pagesize)]
         else:
             index = 0
             mark_prev = None
-        mark_next = list_get_default(mark_list, index + PAGESZ, default=None)
+        mark_next = list_get_default(mark_list, index + pagesize, default=None)
 
-        output_marks = mark_list[index : index + PAGESZ]
+        output_marks = mark_list[index : index + pagesize]
 
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
         jsondict = self.create_jsondict()
