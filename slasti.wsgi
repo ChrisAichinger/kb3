@@ -13,6 +13,7 @@ import os
 import http.cookies
 import email.utils
 import time
+import mimetypes
 
 # CFGUSERS was replaced by  SetEnv slasti.userconf /slasti-users.conf
 CFGUSERS = "slasti-users.conf"
@@ -107,15 +108,18 @@ def do_file(environ, start_response, fname):
     fpath = os.path.join(script_dir, "slasti/static_files/" + fname)
     last_modified = time.gmtime(os.stat(fpath).st_mtime)
 
+    # Guess MIME content type from file extension
+    ctype = mimetypes.guess_type(fpath)[0]
+
     # Check for if-modified-since header and answer accordingly
     if_modified_since = environ.get('HTTP_IF_MODIFIED_SINCE', None)
     if_modified_since = parse_http_date(if_modified_since)
     if if_modified_since == last_modified[:6]:
         # Browser has a cached copy which is still up-to-date
-        start_response("304 Not Modified", [('Content-type', 'text/plain')])
+        start_response("304 Not Modified", [('Content-type', ctype)])
         return [b'\r\n']
 
-    headers = [('Content-type', 'text/plain')]
+    headers = [('Content-type', ctype)]
 
     max_age = 30 * 24 * 3600  # 30 days
     expires = time.time() + max_age
