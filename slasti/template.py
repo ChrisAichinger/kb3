@@ -36,9 +36,8 @@ class Filter:
         return ''.join(result)
 
 def render(filename, render_args):
-    slasti_dir = os.path.dirname(__file__)
+    slasti_dir = os.path.dirname(os.path.abspath(__file__))
     template_dir = os.path.join(slasti_dir, "templates")
-    template_dir = 'slasti/templates'
 
     template = makoTemplate(filename=os.path.join(template_dir, filename),
                         lookup=TemplateLookup(directories=['.', template_dir]),

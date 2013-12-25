@@ -103,7 +103,8 @@ def do_file(environ, start_response, fname):
     if method != 'GET':
         raise AppGetError(method)
 
-    fpath = "slasti/static_files/" + fname
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    fpath = os.path.join(script_dir, "slasti/static_files/" + fname)
     last_modified = time.gmtime(os.stat(fpath).st_mtime)
 
     # Check for if-modified-since header and answer accordingly
