@@ -4,14 +4,15 @@
 <%include file="html_body_top.html"/>
 % for mark in marks:
     <div class="bookmark">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
-      [<a href="${s_userurl}/mark.${mark.key_str()}">&#9734;</a>]
-      <a href="${mark.url | filter.attr}">${mark.title | filter.html}</a><br />
+      [<a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a>]
+      <a href="${mark.url | filter.attr}" class="mark_link"
+          >${mark.title | filter.html}</a><br />
       % if mark.note:
           <div class="note">${mark.note | filter.html}</div>
       % endif
       % for tag in mark.tags:
           % if tag:
-          <a href="${s_userurl}/${tag | filter.attr}/"
+          <a href="${s_userurl}/${tag | filter.attr}/" class="mark_tag"
                   >${tag | filter.html}</a>
           % else:
               -
