@@ -32,16 +32,17 @@ $(document).ready(function() {
             jq_data.find('.bookmark').each(function (i, elem) {
                 // Redeclare regex within loop. Otherwise we hit a FF bug:
                 // http://stackoverflow.com/questions/10167323
-                var loc_regex = /loc:([+-]?[.0-9]+),([+-]?[.0-9]+)/g;
-                var m = loc_regex.exec(elem.innerHTML);
-                if (!m) {
-                    return;
+                var loc_regex = /loc:([+-]?[.0-9]+),([+-]?[.0-9]+)([^<\n]*)/g;
+                while ((m = loc_regex.exec(elem.innerHTML)) != null)
+                {
+                    var lat = m[1];
+                    var lon = m[2];
+                    var comment = m[3].trim();
+                    comment = comment.length ? (" - " + comment) : "";
+                    var name = $(elem).find('.mark_link').text();
+                    results.push([lat.toString(), lon.toString(), "circle5",
+                                  "red", "", name + comment].join('\t'));
                 }
-                var lat = m[1];
-                var lon = m[2];
-                var name = $(elem).find('.mark_link').text();
-                results.push([lat.toString(), lon.toString(), "circle5", "red",
-                              "", name].join('\t'));
             });
 
             // Send the results to copypastemap.com
