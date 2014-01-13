@@ -133,7 +133,7 @@ def do_file(environ, start_response, fname):
     headers.append(('Cache-control', 'public, max-age={}'.format(max_age)))
 
     start_response("200 OK", headers)
-    return [open(fpath).read()]
+    return [open(fpath, 'rb').read()]
 
 ## Based on James Gardner's environ dump.
 #def do_environ(environ, start_response):
