@@ -249,8 +249,12 @@ def application(environ, start_response):
 
     try:
         stripped_path = path.strip(' ').strip('/')
-        static_files = ["edit.js", "style.css", "slasti.js", "jquery.js",
-                        "showdown.js"]
+        static_files = [
+            "edit.js", "style.css", "slasti.js", "jquery.js", "showdown.js",
+            "OpenLayers/OpenLayers.light.js",
+            "OpenLayers/OpenLayers.light.debug.js",
+            "OpenLayers/img/cloud-popup-relative.png",
+            ]
         if not path or path == "/":
             output = do_root(environ, start_response)
         elif stripped_path in static_files:
