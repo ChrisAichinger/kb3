@@ -36,3 +36,6 @@
         </form>
     </td>
 </tr></table>
+% if search_error:
+    <pre>${search_error | filter.html}</pre>
+% endif
