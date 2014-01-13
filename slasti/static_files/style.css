@@ -90,3 +90,21 @@ div.olControlAttribution {
     text-align: right;
     bottom: 3px;
 }
+#markdown_cheatsheet_btn {
+    font-size: 80%;
+}
+#markdown_cheatsheet {
+    position: absolute;
+    right: 0px;
+    text-align: left;
+    background-color: #eee;
+    padding: 8px;
+    -moz-border-radius: 8px;
+    border-radius: 8px;
+}
+.alignRight {
+    text-align: right;
+}
+.posRelative {
+    position: relative;
+}

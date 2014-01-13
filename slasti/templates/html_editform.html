@@ -37,7 +37,20 @@
  </tr><tr>
   <td>Extra
   <td><textarea name="extra" type="text"
-                cols=95 rows=4>${note | filter.html}</textarea>
+                cols=95 rows=6>${note | filter.html}</textarea>
+ </tr><tr>
+ <td colspan=2 class="alignRight posRelative">
+  <div id="cheatsheet_wrap" class="alignRight posRelative">
+      <a id="markdown_cheatsheet_btn" href="javascript:void(0)">CheatSheet</a>
+      <div id="markdown_cheatsheet" style="display:none">
+          &#35; H1<br/>
+          &#35;&#35; H2<br/>
+          [Link](URL)<br/>
+          ![Picture alt](URL)<br/>
+          _italics_, **bold**, `code`<br/>
+          ---- hr
+      </div>
+  </div>
  </tr><tr>
   <td colspan=2><input name=action type=submit value="Save" />
  </tr></table>

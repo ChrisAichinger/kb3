@@ -157,4 +157,8 @@ $(document).ready(function() {
         });
     });
 
+    $("#markdown_cheatsheet_btn").click(function(evt) {
+        $("#markdown_cheatsheet").css({display: "block"});
+    });
+
 });
