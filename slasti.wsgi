@@ -254,6 +254,7 @@ def application(environ, start_response):
             "OpenLayers/OpenLayers.light.js",
             "OpenLayers/OpenLayers.light.debug.js",
             "OpenLayers/img/cloud-popup-relative.png",
+            "OpenLayers/theme/default/style.css",
             ]
         if not path or path == "/":
             output = do_root(environ, start_response)
