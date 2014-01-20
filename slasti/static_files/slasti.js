@@ -67,13 +67,34 @@ $(document).ready(function() {
     function map_plot(coords) {
         $("#mapwrap").css({display: "block"});
 
+        var mapbox = new OpenLayers.Layer.XYZ("MapBox Streets", [
+            "https://a.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
+            "https://b.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
+            "https://c.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
+            "https://d.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
+            ], {
+                attribution:
+                    "Tiles &copy; <a href='http://mapbox.com/'>MapBox</a> | " +
+                    "Data &copy; <a href='http://www.openstreetmap.org/'>" +
+                    "OpenStreetMap</a> and contributors, CC-BY-SA",
+                sphericalMercator: true,
+                wrapDateLine: true,
+                //transitionEffect: "resize",
+                // buffer: 1,
+                numZoomLevels: 17,
+                //'maxExtent': new OpenLayers.Bounds(1000,100,-1000,-100)
+            },
+            {isBaseLayer: true});
+
         // Bootstrap OpenLayers
         map = new OpenLayers.Map("mapdisplay");
-        map.addLayer(new OpenLayers.Layer.Bing({
+        map.addLayer(mapbox);
+        /*map.addLayer(new OpenLayers.Layer.Bing({
                             name: "Road",
-                            key: "AqTGBsziZHIJYYxgivLBf0hVdrAk9mWO5cQcb8Yux8sW5M8c8opEC2lZqKR1ZZXf",
+                            key: "AqTGBsziZHIJYYxgivLBf0hVdrAk9mWO" +
+                                 "5cQcb8Yux8sW5M8c8opEC2lZqKR1ZZXf",
                             type: "Road"
-                        }));
+                        }));*/
 
         var epsg4326 = new OpenLayers.Projection("EPSG:4326"); // WGS 84
         var projectTo = map.getProjectionObject();     // Map projection
