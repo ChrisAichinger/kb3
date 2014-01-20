@@ -44,9 +44,12 @@ $(document).ready(function() {
                 var lon = parseFloat(m[2]);
                 var comment = m[3].trim();
                 var separator = comment.length ? " - " : "";
+                var mark_text = $(elem).find('.mark').text();
+                var mark_href = $(elem).find('.mark').attr("href");
                 var name = $(elem).find('.mark_link').text();
                 var href = $(elem).find('.mark_link').attr("href");
                 results.push({lat: lat, lon: lon,
+                              mark_text: mark_text, mark_href: mark_href,
                               name: name, comment: comment, href: href,
                               description: name + separator + comment});
             }
@@ -120,6 +123,8 @@ $(document).ready(function() {
               feature.geometry.getBounds().getCenterLonLat(),
               null,
               '<div class="markerContent">' +
+                  '[<a href="' + coord.mark_href + '">' +
+                                 coord.mark_text + '</a>] ' +
                   '<a href="' + coord.href + '">' + coord.name + '</a>' +
                   (coord.comment.length ? ('<br/>' + coord.comment) : "") +
                   '</div>',
