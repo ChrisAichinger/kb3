@@ -43,15 +43,35 @@ h2.username {
     margin-left: 8px;
 }
 
-#mapwrap {
+#mapwrap, #map_search {
     display: none;
     position: fixed;
+    background-color: #aaa;
+}
+
+#mapwrap {
     top: 10%;
     left: 10%;
     width: 80%;
     height: 80%;
-    background-color: #aaa;
     padding: 5px;
+}
+
+#map_search {
+    top: 30%;
+    left: 30%;
+    width: 40%;
+    height: 40%;
+    padding: 2em;
+}
+
+#map_search_buttons {
+    width: 100%;
+    text-align: right;
+}
+
+#map_search textarea {
+    width: 100%;
 }
 
 #mapdisplay {

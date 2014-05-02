@@ -33,7 +33,7 @@ $(document).ready(function() {
         var jq_data = $('<div/>').html(data);
 
         // Iterate over bookmarks to find loc: directives and mark names
-        var results = [];
+        var bookmarks = [];
         jq_data.find('.bookmark').each(function (i, elem) {
             // Redeclare regex within loop. Otherwise we hit a FF bug:
             // http://stackoverflow.com/questions/10167323
@@ -48,23 +48,60 @@ $(document).ready(function() {
                 var mark_href = $(elem).find('.mark').attr("href");
                 var name = $(elem).find('.mark_link').text();
                 var href = $(elem).find('.mark_link').attr("href");
-                results.push({lat: lat, lon: lon,
-                              mark_text: mark_text, mark_href: mark_href,
-                              name: name, comment: comment, href: href,
-                              description: name + separator + comment});
+                var tags = $(elem).find('.mark_tag').map(function(i, el) {
+                    return $(el).text().toLowerCase();
+                }).get();
+                bookmarks.push({lat: lat, lon: lon,
+                                mark_text: mark_text, mark_href: mark_href,
+                                name: name, comment: comment, href: href,
+                                description: name + separator + comment,
+                                tags: tags});
             }
         });
 
-        // Display the map and show the points on it
-        map_plot(results);
+        // Ask the user which tags she wants to map.
+        // Pressing "Ok" will cause the map and bookmarks to be displayed.
+        $("#map_search").css({display: "block"});
+        $("#map_search").data("bookmarks", bookmarks);
     }
+
+    $("#map_search_cancel").click(function(evt) {
+        $("#map_search").css({display: "none"});
+    });
+    $("#map_search_ok").click(function(evt) {
+        $("#map_search").css({display: "none"});
+        var queries = $("#map_search_query").val().trim();
+        var bookmarks = $("#map_search").data("bookmarks");
+        if (!queries) {
+            // No query string given, show all marks with "loc:" data.
+            map_plot({'all': bookmarks});
+            return;
+        }
+        queries = queries.split(/\s+/);
+        var plot_items = new Object();
+        $.each(queries, function (index, query) {
+            var invert = false;
+            if (query[0] == '^' || query[0] == '!') {
+                query = query.substr(1);
+                invert = true;
+            }
+            var lower_query = query.toLowerCase()
+            var matching_marks = $.grep(bookmarks, function(mark, i) {
+                return $.inArray(lower_query, mark.tags) != -1;
+            }, invert);
+            plot_items[query] = matching_marks;
+        });
+
+        // Show the map and the selected bookmarks.
+        map_plot(plot_items);
+    });
 
     $("#mapclosebtn").click(function(evt) {
         map.destroy();
         $("#mapwrap").css({display: "none"});
     });
 
-    function map_plot(coords) {
+    function map_plot(plot_items) {
         $("#mapwrap").css({display: "block"});
 
         var mapbox = new OpenLayers.Layer.XYZ("MapBox Streets", [
@@ -99,36 +136,47 @@ $(document).ready(function() {
         var epsg4326 = new OpenLayers.Projection("EPSG:4326"); // WGS 84
         var projectTo = map.getProjectionObject();     // Map projection
 
+        var all_coords = [];
+        $.each(plot_items, function(name, coords) {
+            // Append coords array to all_coords.
+            Array.prototype.push.apply(all_coords, coords);
+        });
         // Calculate the map center
-        var sumLon = coords.reduce(function (f, c) { return f + c.lon; }, 0);
-        var sumLat = coords.reduce(function (f, c) { return f + c.lat; }, 0);
-        var centerLon = sumLon / coords.length;
-        var centerLat = sumLat / coords.length;
+        var sumLon = all_coords.reduce(function(f, c) { return f+c.lon; }, 0);
+        var sumLat = all_coords.reduce(function(f, c) { return f+c.lat; }, 0);
+        var centerLon = sumLon / all_coords.length;
+        var centerLat = sumLat / all_coords.length;
         var lonLat = new OpenLayers.LonLat(centerLon, centerLat)
                                    .transform(epsg4326, projectTo);
         var zoom=5;
         map.setCenter(lonLat, zoom);
 
+        var colors = ["#e00", "#0f0", "#33f", "#ee0", "#c0c", "#0cc",
+                      "#f80", "#0fa", "#0af", "#192", "#912", "#12a"];
+        var color_index = 0;
         // Define markers as "features" of the vector layer:
-        var marker = OpenLayers.Util.getImagesLocation() + "marker.png";
         var vectorLayer = new OpenLayers.Layer.Vector("Overlay");
-        $.each(coords, function(i, coord) {
-            var feature = new OpenLayers.Feature.Vector(
-                    new OpenLayers.Geometry.Point(coord.lon, coord.lat)
-                                           .transform(epsg4326, projectTo),
-                    coord,
-                    {title: coord.description,
-                     fillColor: "#e00", strokeColor: "#000",
-                     strokeWidth: 1,
-                     strokeLinecap: "round",
-                     strokeDashstyle: "solid",
-                     pointRadius: 5,
-                     pointerEvents: "visiblePainted",
-                     labelAlign: "cm",
-                     labelOutlineColor: "white",
-                     labelOutlineWidth: 3,
-                });
-            vectorLayer.addFeatures(feature);
+        $.each(plot_items, function(name, coords) {
+            var color = colors[color_index % colors.length];
+            color_index++;
+            $.each(coords, function(i, coord) {
+                var feature = new OpenLayers.Feature.Vector(
+                        new OpenLayers.Geometry.Point(coord.lon, coord.lat)
+                                               .transform(epsg4326, projectTo),
+                        coord,
+                        {title: coord.description,
+                         fillColor: color, strokeColor: "#000",
+                         strokeWidth: 1,
+                         strokeLinecap: "round",
+                         strokeDashstyle: "solid",
+                         pointRadius: 5,
+                         pointerEvents: "visiblePainted",
+                         labelAlign: "cm",
+                         labelOutlineColor: "white",
+                         labelOutlineWidth: 3,
+                    });
+                vectorLayer.addFeatures(feature);
+            });
         });
         map.addLayer(vectorLayer);
 
