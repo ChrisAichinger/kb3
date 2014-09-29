@@ -92,14 +92,22 @@ class SearchStrParser:
     class TopLevelOperator(Operator):
         precedence = 0
 
+    class Not(Operator):
+        valence = 1
+        precedence = 3
+        associativity = "right"
+        op = staticmethod(lambda lhs: not lhs)
+
     class And(Operator):
         valence = 2
         precedence = 2
+        associativity = "left"
         op = staticmethod(lambda lhs, rhs: lhs and rhs)
 
     class Or(Operator):
         valence = 2
         precedence = 1
+        associativity = "left"
         op = staticmethod(lambda lhs, rhs: lhs or rhs)
 
     class POpen(Sentinel):
@@ -149,6 +157,10 @@ class SearchStrParser:
                     continue
                 self.add_token(self.s[1:end_quote], consume=end_quote + 1)
 
+            elif self.s[0] == '!':
+                self.add_token(SearchStrParser.Not(), consume=1)
+            elif self.s[0] == '&':
+                self.add_token(SearchStrParser.And(), consume=1)
             elif self.s[0] == '|':
                 self.add_token(SearchStrParser.Or(), consume=1)
             elif self.s[0] == '(':
@@ -156,7 +168,7 @@ class SearchStrParser:
             elif self.s[0] == ')':
                 self.add_token(SearchStrParser.PClose(), consume=1)
             else:
-                m = re.search(r'\s|[|"\'()]', self.s)
+                m = re.search(r'\s|[!&|"\'()]', self.s)
                 if not m:
                     # The current token stretches till the end of the input.
                     self.add_token(self.s, consume=len(self.s))
@@ -191,7 +203,11 @@ class SearchStrParser:
                 output.append(token)
             elif isinstance(token, SearchStrParser.Operator):
                 while (isinstance(op_stack[-1], SearchStrParser.Operator) and
-                                  token.precedence <= op_stack[-1].precedence):
+                       ((token.associativity == "left" and
+                         token.precedence <= op_stack[-1].precedence)
+                       or
+                        token.precedence < op_stack[-1].precedence
+                       )):
                     output.append(op_stack.pop())
                 op_stack.append(token)
             elif isinstance(token, SearchStrParser.POpen):
@@ -232,7 +248,8 @@ class SearchStrParser:
         stack = []
         for token in self.rpn:
             if isinstance(token, SearchStrParser.Operator):
-                stack.append(token.op(stack.pop(), stack.pop()))
+                args = [stack.pop() for i in range(token.valence)]
+                stack.append(token.op(*args))
             else:
                 stack.append(callback(token))
 
