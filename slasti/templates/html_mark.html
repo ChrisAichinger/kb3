@@ -7,9 +7,6 @@
       [<a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a>]
       <a href="${mark.url | filter.attr}" class="mark_link"
           >${mark.title | filter.html}</a><br />
-      % if mark.note:
-          <div class="note">${mark.note | filter.html}</div>
-      % endif
       % for tag in mark.tags:
           % if tag:
           <a href="${s_userurl}/${tag | filter.attr}/" class="mark_tag"
@@ -21,11 +18,14 @@
       % if not mark.tags:
       -
       % endif
-      %if show_edit:
-          <p>
-          [<a href="${s_userurl}/edit?mark=${mark.key_str()}">edit</a>]
-          </p>
-      %endif
+      % if mark.note:
+          <div class="note">${mark.note | filter.html}</div>
+      % endif
     </div>
+    %if show_edit:
+        <p>
+        [<a href="${s_userurl}/edit?mark=${mark.key_str()}">edit</a>]
+        </p>
+    %endif
 % endfor
 <%include file="html_body_bottom.html"/>
