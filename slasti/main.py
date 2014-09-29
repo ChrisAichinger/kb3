@@ -26,7 +26,7 @@ from slasti import AppGetError, AppGetPostError
 
 from . import tagbase
 
-PAGESZ = 45
+PAGESZ = 60
 WHITESTAR = "\u2606"
 
 
