@@ -20,11 +20,12 @@ $(document).ready(function() {
     newLink.href = 'data:image/png;base64,' + favIcon;
     docHead.appendChild(newLink);
 
+    var mkd_parser = new stmd.DocParser();
+    var mkd_renderer = new stmd.HtmlRenderer();
 
     $(".note").each(function(index, elem) {
-        var converter = new Showdown.converter();
-        var html = converter.makeHtml($(this).html());
-        $(this).html(html);
+        var mkd = mkd_parser.parse($(this).html());
+        $(this).html(mkd_renderer.render(mkd));
     });
 
 
