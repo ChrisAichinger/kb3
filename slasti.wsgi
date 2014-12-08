@@ -141,8 +141,7 @@ def do_file(environ, start_response, fname):
 #    if method != 'GET':
 #        raise AppGetError(method)
 #
-#    sorted_keys = environ.keys()
-#    sorted_keys.sort()
+#    sorted_keys = sorted(environ.keys())
 #
 #    response_headers = [('Content-type', 'text/html')]
 #    start_response("200 OK", response_headers)
@@ -227,8 +226,10 @@ def do_user(environ, start_response, path):
 
     base = slasti.tagbase.SlastiDB(user['root'])
 
+    remote_user = environ.get('slasti.logged_in_user') or \
+                  environ.get('REMOTE_USER')
     app = slasti.main.Application(pfx, user, base, method, path, q, pinput, c,
-                                  start_response)
+                                  remote_user, start_response)
     output = app.process_request()
 
     return output

@@ -262,7 +262,7 @@ class SearchStrParser:
 
 class Application:
     def __init__(self, basepath, user, db,
-                 method, path, query, pinput, cookies,
+                 method, path, query, pinput, cookies, remote_user,
                  start_response):
         self.basepath = basepath
         self.user = user
@@ -272,6 +272,7 @@ class Application:
         self.query = query
         self.pinput = pinput
         self.cookies = cookies
+        self.remote_user = remote_user
         self.respond = start_response
         self.userpath = self.basepath + '/' + self.user["name"]
 
@@ -420,6 +421,10 @@ class Application:
             raise App404Error("Not found: " + self.path)
 
     def login_verify(self):
+        if self.user.get("serverauth", False):
+            # HTTP Auth / Server based auth is enabled for the user.
+            if self.remote_user == self.user["name"]:
+               return True
         if 'pass' not in self.user:
             return False
         if not self.cookies:
