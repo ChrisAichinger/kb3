@@ -3,7 +3,7 @@
 <%include file="html_body_top.html"/>
 <p>
 % for tag in tags:
-<a href="${s_username}/${tag.name | filter.attr}/"
+<a href="${s_userurl}/${tag.name | filter.attr}/"
     >${tag | filter.html}</a> ${tag.num_marks}<br />
 % endfor
 </p>
