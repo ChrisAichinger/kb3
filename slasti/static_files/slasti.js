@@ -236,4 +236,13 @@ $(document).ready(function() {
         $("#markdown_cheatsheet").css({display: "block"});
     });
 
+    if ($("input[type='submit'][value='Save']").length > 0) {
+        $(window).bind('keydown', function(evt) {
+            var key = String.fromCharCode(evt.which).toLowerCase();
+            if ((evt.ctrlKey || evt.metaKey) && key == 's') {
+                evt.preventDefault();
+                $("input[type='submit'][value='Save']").click();
+            }
+        });
+    }
 });
