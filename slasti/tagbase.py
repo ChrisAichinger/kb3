@@ -187,10 +187,9 @@ class SlastiDB:
         for mark in self.get_marks():
             yield mark
 
-    def get_marks(self, tag=None):
+    def get_marks(self):
         rows = self.dbconn.execute("SELECT * FROM marks ORDER BY time DESC;")
-        for row in rows:
-            yield self._mark_from_dbrow(row)
+        return (self._mark_from_dbrow(row) for row in rows)
 
     def get_tag_marks(self, tag):
         rows = self.dbconn.execute(
@@ -199,8 +198,7 @@ class SlastiDB:
                       JOIN tags ON (mark_tags.tag_id = tags.tag_id)
                       WHERE tags.tag = ?
                       ORDER BY marks.time DESC;""", (tag,))
-        for row in rows:
-            yield self._mark_from_dbrow(row)
+        return (self._mark_from_dbrow(row) for row in rows)
 
     def get_tags(self):
         rows = self.dbconn.execute(
