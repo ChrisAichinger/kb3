@@ -166,39 +166,40 @@ class SlastiDB:
 
     def _mark_from_dbrow(self, row):
         d = dict(row)
-        tag_list = self.dbconn.execute(
-                      """SELECT tags.tag FROM tags
-                                JOIN mark_tags USING (tag_id)
-                                WHERE mark_tags.mark_id = ?;
-                      """, (d["mark_id"],)).fetchall()
-        d["tags"] = [t[0] for t in tag_list]
+        d["tags"] = d["tags"].split()
         return DBMark(from_dict=d)
 
+    def _get_marks(self, *, mark_id=None, tag=None):
+        where_mark = '''WHERE mark_id = :mark_id''' if mark_id else ''
+        where_tag =  '''WHERE mark_id in (SELECT mark_id FROM mark_tags
+                                          JOIN tags USING (tag_id)
+                                          WHERE tag = :tag)''' if tag else ''
+        stmt = """SELECT marks.*, group_concat(tag, ' ') AS tags FROM marks
+                  JOIN mark_tags USING (mark_id)
+                  JOIN tags USING (tag_id)
+                  {where_mark} {where_tag}
+                  GROUP BY mark_id
+                  ORDER BY time DESC;""".format(where_mark=where_mark,
+                                                where_tag=where_tag)
+
+        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'tag': tag })
+        return (self._mark_from_dbrow(row) for row in rows)
+
     def lookup(self, mark_id):
-        mark_id = int(mark_id)
-        cur = self.dbconn.cursor()
-        cur.execute("""SELECT * FROM marks WHERE mark_id = ?;""", (mark_id,))
-        result = cur.fetchall()
+        result = list(self._get_marks(mark_id=int(mark_id)))
         if not result:
             return None
-        return self._mark_from_dbrow(result[0])
+        return result[0]
 
     def get_headers(self, tag=None):
         for mark in self.get_marks():
             yield mark
 
     def get_marks(self):
-        rows = self.dbconn.execute("SELECT * FROM marks ORDER BY time DESC;")
-        return (self._mark_from_dbrow(row) for row in rows)
+        return self._get_marks()
 
     def get_tag_marks(self, tag):
-        rows = self.dbconn.execute(
-            """SELECT marks.* FROM marks
-                      JOIN mark_tags USING (mark_id)
-                      JOIN tags ON (mark_tags.tag_id = tags.tag_id)
-                      WHERE tags.tag = ?
-                      ORDER BY marks.time DESC;""", (tag,))
-        return (self._mark_from_dbrow(row) for row in rows)
+        return self._get_marks(tag=tag)
 
     def get_tags(self):
         rows = self.dbconn.execute(
