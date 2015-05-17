@@ -23,9 +23,13 @@ $(document).ready(function() {
     var mkd_parser = new stmd.DocParser();
     var mkd_renderer = new stmd.HtmlRenderer();
 
+    function urlX(url) { if(/^https?:\/\//.test(url)) { return url }}
     $(".note").each(function(index, elem) {
-        var mkd = mkd_parser.parse($(this).html());
-        $(this).html(mkd_renderer.render(mkd));
+        if (this.childNodes.length) {
+            var input = this.childNodes[0].nodeValue;
+            var mkd = mkd_parser.parse(input);
+            $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
+        }
     });
 
 

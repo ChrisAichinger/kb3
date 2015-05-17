@@ -252,6 +252,7 @@ def application(environ, start_response):
         stripped_path = path.strip(' ').strip('/')
         static_files = [
             "edit.js", "style.css", "slasti.js", "jquery.js", "stmd.js",
+            "html4.js", "uri.js", "html-sanitizer.js",
             "OpenLayers/OpenLayers.light.js",
             "OpenLayers/OpenLayers.light.debug.js",
             "OpenLayers/img/cloud-popup-relative.png",
