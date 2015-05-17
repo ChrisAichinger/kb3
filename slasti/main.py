@@ -275,6 +275,7 @@ class Application:
         self.remote_user = remote_user
         self.respond = start_response
         self.userpath = self.basepath + '/' + self.user["name"]
+        self.staticpath = self.basepath + '/static_files'
 
         self.is_logged_in = self.login_verify()
 
@@ -318,6 +319,7 @@ class Application:
         jsondict = {
                     "s_baseurl": self.basepath,
                     "s_userurl": self.userpath,
+                    "s_staticurl": self.staticpath,
                     "s_username": self.user["name"],
                    }
         if self.is_logged_in:

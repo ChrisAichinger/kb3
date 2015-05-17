@@ -105,7 +105,7 @@ def do_file(environ, start_response, fname):
         raise AppGetError(method)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    fpath = os.path.join(script_dir, "slasti/static_files/" + fname)
+    fpath = os.path.join(script_dir, "slasti/" + fname)
     last_modified = time.gmtime(os.stat(fpath).st_mtime)
 
     # Guess MIME content type from file extension
@@ -258,6 +258,7 @@ def application(environ, start_response):
             "OpenLayers/img/cloud-popup-relative.png",
             "OpenLayers/theme/default/style.css",
             ]
+        static_files = ['static_files/' + s for s in static_files]
         if not path or path == "/":
             output = do_root(environ, start_response)
         elif stripped_path in static_files:
