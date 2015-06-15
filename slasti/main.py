@@ -262,11 +262,12 @@ class SearchStrParser:
 
 class Application:
     def __init__(self, basepath, user, db,
-                 method, path, query, pinput, cookies, remote_user,
+                 scheme, method, path, query, pinput, cookies, remote_user,
                  start_response):
         self.basepath = basepath
         self.user = user
         self.base = db
+        self.scheme = scheme
         self.method = method
         self.path = path
         self.query = query
@@ -507,7 +508,10 @@ class Application:
 
         response_headers = [('Content-type', 'text/html; charset=utf-8')]
         # Set an RFC 2901 cookie (not RFC 2965).
-        response_headers.append(('Set-Cookie', "login=%s:%s" % (opdata, mdstr)))
+        cookie = ["login=%s:%s" % (opdata, mdstr), "HttpOnly"]
+        if self.scheme.lower() == 'https':
+            cookie.append("Secure")
+        response_headers.append(('Set-Cookie', '; '.join(cookie)))
         response_headers.append(('Location', redihref))
         self.respond("303 See Other", response_headers)
 
