@@ -4,7 +4,14 @@
 <%include file="html_body_top.html"/>
 % for mark in marks:
     <div class="bookmark">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
-      [<a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a>]
+      [<span class="mark_meta_links"
+             ><a href="${s_userurl}/mark.${mark.key_str()}"
+                 class="mark">&#9734;</a
+             %if not show_edit:
+             ><a href="${s_userurl}/edit?mark=${mark.key_str()}"
+                 class="mark_edit_link"><sup>e</sup></a
+             %endif
+             ></span>]
       <a href="${mark.url | filter.attr}" class="mark_link"
           >${mark.title | filter.html}</a><br />
       % for tag in mark.tags:

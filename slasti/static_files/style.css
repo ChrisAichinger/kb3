@@ -154,3 +154,9 @@ div.olControlAttribution {
     position: relative;
 }
 
+.mark_edit_link {
+    display: none;
+}
+.mark_meta_links.enable_edit .mark_edit_link {
+    display: inline;
+}

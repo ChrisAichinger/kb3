@@ -23,7 +23,7 @@ $(document).ready(function() {
     var mkd_parser = new stmd.DocParser();
     var mkd_renderer = new stmd.HtmlRenderer();
 
-    function urlX(url) { if(/^https?:\/\//.test(url)) { return url }}
+    function urlX(url) { if (/^https?:\/\//.test(url)) { return url } }
     $(".note").each(function(index, elem) {
         if (this.childNodes.length) {
             var input = this.childNodes[0].nodeValue;
@@ -32,6 +32,14 @@ $(document).ready(function() {
         }
     });
 
+    $(".mark_meta_links").hover(
+        function () {
+            $(this).addClass("enable_edit");
+        },
+        function () {
+            $(this).removeClass("enable_edit");
+        }
+    );
 
     function process_loc_data(data) {
         // Transform data into a jQuery object
