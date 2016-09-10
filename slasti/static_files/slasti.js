@@ -23,6 +23,25 @@ $(document).ready(function() {
     var mkd_parser = new stmd.DocParser();
     var mkd_renderer = new stmd.HtmlRenderer();
 
+
+    // Returns a function, that, as long as it continues to be invoked, will
+    // not be triggered. The function will be called after it stops being
+    // called for N milliseconds. If `immediate` is passed, trigger the
+    // function on the leading edge, instead of the trailing.
+    function debounce(func, wait, immediate) {
+        var timeout;
+        return function() {
+            var context = this, args = arguments;
+            var later = function() {
+                timeout = null;
+                if (!immediate) func.apply(context, args);
+            };
+            var callNow = immediate && !timeout;
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+            if (callNow) func.apply(context, args);
+        };
+    };
     function urlX(url) { if (/^https?:\/\//.test(url)) { return url } }
     $(".note").each(function(index, elem) {
         if (this.childNodes.length) {
@@ -31,6 +50,16 @@ $(document).ready(function() {
             $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
         }
     });
+    function parseAndRender() {
+        $("#extra-rendered-container").show();
+        var input = $("#extra-text").val();
+        var mkd = mkd_parser.parse(input);
+        var raw = mkd_renderer.render(mkd);
+        $("#extra-rendered").html(html_sanitize(raw, urlX));
+        MathJax.Hub.Queue(["Typeset",MathJax.Hub,"extra-rendered"]);
+    }
+    $("#extra-text").bind('input propertychange',
+                          debounce(parseAndRender, 50));
 
     $(".mark_meta_links").hover(
         function () {
