@@ -285,5 +285,10 @@ $(document).ready(function() {
                 $("input[type='submit'][value='Save']").click();
             }
         });
+        $('#extra-text').keydown(function (e) {
+            if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
+                $("input[type='submit'][value='Save']").click();
+            }
+        });
     }
 });
