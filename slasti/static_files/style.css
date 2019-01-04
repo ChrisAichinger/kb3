@@ -160,3 +160,39 @@ div.olControlAttribution {
 .mark_meta_links.enable_edit .mark_edit_link {
     display: inline;
 }
+
+@media only screen and (min-width: 768px) {
+    div.editform-container {
+        grid-template-columns: max-content minmax(max-content, 1fr);
+        grid-row-gap: 0.3em;
+    }
+}
+
+@media only screen and (max-width: 767px) {
+    .editform-container {
+        grid-template-columns: 1fr;
+    }
+
+    .margin-above {
+        margin-top: 0.5em;
+    }
+}
+
+.editform-elem-colspan {
+    grid-column: 1 / -1;
+}
+
+.editform-container {
+    display: grid;
+    max-width: 766px;
+    grid-column-gap: 10px;
+    margin-top: 0.5em;
+}
+
+.flex-container {
+    display: flex;
+}
+
+.flex-container input {
+    flex: 1;
+}
