@@ -291,4 +291,13 @@ $(document).ready(function() {
             }
         });
     }
+    if ($("#global-edit-link").length > 0) {
+        $(window).bind('keydown', function(evt) {
+            var key = String.fromCharCode(evt.which).toLowerCase();
+            if (key == 'e') {
+                evt.preventDefault();
+                location.href = $("#global-edit-link").attr('href');
+            }
+        });
+    }
 });
