@@ -33,7 +33,9 @@
   <input name="tags" type="text" maxlength=1024 value="${tags | filter.attr}"/>
 
   <div class="editform-elem margin-above">Extra</div>
-  <textarea name="extra" type="text" id="extra-text" rows=8>${note | filter.html}</textarea>
+  <div class="flex-container">
+    <textarea name="extra" type="text" id="extra-text" rows=12>${note | filter.html}</textarea>
+  </div>
 
    <div id="cheatsheet_wrap" class="editform-elem-colspan alignRight posRelative">
        <a id="markdown_cheatsheet_btn" href="javascript:void(0)">CheatSheet</a>

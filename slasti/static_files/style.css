@@ -193,6 +193,6 @@ div.olControlAttribution {
     display: flex;
 }
 
-.flex-container input {
+.flex-container input, .flex-container textarea {
     flex: 1;
 }
