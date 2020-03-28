@@ -13,18 +13,12 @@
 %>
 <%include file="html_header.html"/>
 <%include file="html_body_top.html"/>
-<script src="${s_staticurl}/edit.js" type="text/javascript"></script>
 <form action="${s_action_edit}" method="POST" name="editform">
 <div class="editform-container">
   <div class="editform-elem margin-above">Title</div>
   <div class="editform-elem flex-container">
     <input name="title" type="text" maxlength=1024 id="edt_title"
              value="${title | filter.attr}" />
-      % if not mark:
-      <input name="preload" value="Preload" type="button" id="btn_preload"
-      onclick="preload_title('${s_userurl}/fetchtitle',
-                             'edt_title', 'btn_preload');" />
-      % endif
   </div>
   <div class="editform-elem margin-above">URL</div>
   <input name="href" type="text" maxlength=1024 value="${url | filter.attr}"/>

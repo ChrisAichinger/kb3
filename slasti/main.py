@@ -15,9 +15,6 @@ import urllib.request, urllib.parse, urllib.error
 import base64
 import hashlib
 
-# Beautifulsoup 4.x dependency
-from bs4 import BeautifulSoup
-
 import slasti
 import slasti.template
 from slasti import AppError, App400Error, AppLoginError, App404Error
@@ -69,13 +66,6 @@ def url_search(mark, query, path):
         return None
     query = slasti.escapeURLComponent(query)
     return '%s/search?q=%s&firstmark=%s' % (path, query, mark.key_str())
-
-def fetch_site_title(url):
-    # XXX Seriously, sanitize url before opening the page
-    req = urllib.request.urlopen(url)
-    content = req.read(10000)
-    soup = BeautifulSoup(content)
-    return soup.title.text
 
 
 class SearchStrParser:
@@ -344,7 +334,6 @@ class Application:
         #   new             -- GET for the form
         #   edit            -- PUT or POST here, GET may have ?query
         #   delete          -- POST
-        #   fetchtitle      -- GET with ?query
         #   login           -- GET/POST to obtain a cookie (not snoop-proof)
         #   anime/          -- tag (must have slash)
         #   anime/page.129  -- tag page off this down
@@ -368,9 +357,6 @@ class Application:
                 },
             "delete": {
                 "POST": (auth_force, self.delete_post),
-                },
-            "fetchtitle": {
-                "GET": (auth_force, self.fetch_get),
                 },
             "": {
                 "GET": (auth_none, lambda: self.root_generic_html(tag=None)),
@@ -735,19 +721,6 @@ class Application:
                   "href_page_next": url_mark(mark_next, self.userpath),
                  })
         return [slasti.template.render("html_mark.html", jsondict)]
-
-    # The server-side indirection requires extreme care to prevent abuse.
-    # User may hit us with URLs that point to generated pages, slow servers,..
-    # As the last resort, we never work as a generic proxy.
-    def fetch_get(self):
-        url = self.get_query_arg("url")
-        if not url:
-            raise App400Error("no query")
-        title = fetch_site_title(url)
-
-        self.respond("200 OK", [('Content-type', 'text/plain; charset=utf-8')])
-        jsondict = { "output": '%s\r\n' % title }
-        return [slasti.template.render("simple_output.txt", jsondict)]
 
     def one_mark_html(self, mark_str):
         mark = self.base.lookup(mark_str)
