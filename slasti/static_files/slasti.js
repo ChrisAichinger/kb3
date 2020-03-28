@@ -42,7 +42,7 @@ $(document).ready(function() {
             if (callNow) func.apply(context, args);
         };
     };
-    function urlX(url) { if (/^https?:\/\//.test(url)) { return url } }
+    function urlX(url) { if (/^https?:\/\//.test(url) || /^data:image\/png;/.test(url)) { return url } }
     $(".note").each(function(index, elem) {
         if (this.childNodes.length) {
             var input = this.childNodes[0].nodeValue;
