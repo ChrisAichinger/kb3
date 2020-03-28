@@ -195,4 +195,5 @@ div.olControlAttribution {
 
 .flex-container input, .flex-container textarea {
     flex: 1;
+    width: 100%
 }
