@@ -10,7 +10,9 @@
 import os
 import time
 import cgi
+import difflib
 import sqlite3
+import urllib.parse
 
 from slasti import AppError
 import slasti
@@ -169,20 +171,22 @@ class SlastiDB:
         d["tags"] = d["tags"].split()
         return DBMark(from_dict=d)
 
-    def _get_marks(self, *, mark_id=None, tag=None):
+    def _get_marks(self, *, mark_id=None, tag=None, url=None):
         where_mark = '''WHERE mark_id = :mark_id''' if mark_id else ''
         where_tag =  '''WHERE mark_id in (SELECT mark_id FROM mark_tags
                                           JOIN tags USING (tag_id)
                                           WHERE tag = :tag)''' if tag else ''
+        where_url = '''WHERE url = :url''' if url is not None else ''
         stmt = """SELECT marks.*, group_concat(tag, ' ') AS tags FROM marks
                   JOIN mark_tags USING (mark_id)
                   JOIN tags USING (tag_id)
-                  {where_mark} {where_tag}
+                  {where_mark} {where_tag} {where_url}
                   GROUP BY mark_id
                   ORDER BY time DESC;""".format(where_mark=where_mark,
-                                                where_tag=where_tag)
+                                                where_tag=where_tag,
+                                                where_url=where_url)
 
-        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'tag': tag })
+        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'tag': tag, 'url': url })
         return (self._mark_from_dbrow(row) for row in rows)
 
     def lookup(self, mark_id):
@@ -209,3 +213,6 @@ class SlastiDB:
                           ORDER BY tag ASC;""")
         for row in rows:
             yield DBTag(row[0], row[1])
+
+    def find_by_url(self, url):
+        return list(self._get_marks(url=url))

@@ -12,7 +12,6 @@ import os
 import re
 import time
 import urllib.request, urllib.parse, urllib.error
-import difflib
 import base64
 import hashlib
 
@@ -530,37 +529,10 @@ class Application:
         jsondict["us_redirect"] = login_loc
         return [slasti.template.render("html_redirect.html", jsondict)]
 
-    def find_similar_marks(self, href):
-        if not href:
-            return []
-        href = href.lower().strip()
-        user_parsed = urllib.parse.urlsplit(href)
-
-        candidates = []
-        for mark in self.base.get_marks():
-            markurl = mark.url.lower()
-            if href == markurl:
-                # exact match
-                return [mark]
-
-            mark_parsed = urllib.parse.urlparse(markurl)
-            if user_parsed.netloc != mark_parsed.netloc:
-                # Different hosts - not our similar
-                continue
-
-            r = difflib.SequenceMatcher(None, href, markurl).quick_ratio()
-            if r > 0.8:
-                candidates.append((r, mark))
-
-        # Use sort key, otherwise we blow up if two ratios are equal
-        # (no compare operations defined for marks)
-        candidates = sorted(candidates, key=lambda elem: elem[0], reverse=True)
-        return [mark for ratio, mark in candidates]
-
     def new_form(self):
         title = self.get_query_arg('title')
         href = self.get_query_arg('href')
-        similar = self.find_similar_marks(href)
+        similar = self.base.find_by_url(href)
 
         jsondict = self.create_jsondict()
         jsondict.update({
