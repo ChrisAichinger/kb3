@@ -15,6 +15,8 @@ import urllib.request, urllib.parse, urllib.error
 import base64
 import hashlib
 
+from nltk.corpus import stopwords as nltk_stopwords
+
 import slasti
 import slasti.template
 from slasti import AppError, App400Error, AppLoginError, App404Error
@@ -519,20 +521,7 @@ class Application:
         title = self.get_query_arg('title')
         url = self.get_query_arg('href') or ''
         mark = tagbase.DBMark(title=title, url=url)
-        same_url_marks = self.base.find_by_url(url)
-        similar = self.base.find_similar(mark)
-
-        jsondict = self.create_jsondict()
-        jsondict.update({
-                "mark": mark,
-                "current_tag": "[" + WHITESTAR + "]",
-                "s_action_edit": self.userpath + '/edit',
-                "s_action_delete": None,
-                "same_url_marks": same_url_marks,
-                "similar_marks": similar,
-            })
-        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-        return [slasti.template.render("html_editform.html", jsondict)]
+        return self._edit_form(mark, new=True)
 
     def edit_form(self):
         mark_str = self.get_query_arg("mark")
@@ -540,20 +529,25 @@ class Application:
         if not mark:
             raise App400Error("not found: " + mark_str)
 
-        similar = self.base.find_similar(mark)
+        return self._edit_form(mark, new=False)
+
+    def _edit_form(self, mark, new):
+        same_url_marks = self.base.find_by_url(mark.url) if new else []
+        stopwords = [w for lang in self.user['stopwords'] for w in nltk_stopwords.words(lang)]
+        similar = self.base.find_similar(mark, stopwords=stopwords)
 
         jsondict = self.create_jsondict()
         jsondict.update({
-            "mark": mark,
-            "current_tag": WHITESTAR,
-            "href_current_tag": url_mark(mark, self.userpath),
-            "s_action_edit": url_mark(mark, self.userpath),
-            "s_action_delete": self.userpath + '/delete',
-            "similar_marks": similar,
+                "mark": mark,
+                "current_tag":      f"[{WHITESTAR}]"        if new else WHITESTAR,
+                "href_current_tag": None                    if new else url_mark(mark, self.userpath),
+                "s_action_edit":    self.userpath + '/edit' if new else url_mark(mark, self.userpath),
+                "s_action_delete":  None                    if new else self.userpath + '/delete',
+                "same_url_marks": same_url_marks,
+                "similar_marks": similar,
             })
-
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
-        return [slasti.template.render('html_editform.html', jsondict)]
+        return [slasti.template.render("html_editform.html", jsondict)]
 
     # The name edit_post() is a bit misleading, because POST to /edit is used
     # to create new marks, not to edit existing ones (see mark_post() for that).

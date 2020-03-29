@@ -15,7 +15,6 @@ import urllib.parse
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
-from nltk.corpus import stopwords as nltk_stopwords
 
 from slasti import AppError
 import slasti
