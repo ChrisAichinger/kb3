@@ -21,7 +21,7 @@ from slasti import AppError
 import slasti
 
 
-def split_marks(tagstr):
+def split_tags(tagstr):
     return [t for t in tagstr.split(' ') if t]
 
 class DBMark:

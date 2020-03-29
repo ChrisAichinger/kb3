@@ -561,7 +561,7 @@ class Application:
         argd = self.find_post_args()
 
         mark_str = self.base.add1(argd['title'], argd['href'], argd['extra'],
-                                  tagbase.split_marks(argd['tags']))
+                                  tagbase.split_tags(argd['tags']))
         if not mark_str:
             raise App404Error("Could not add bookmark!")
 
@@ -701,7 +701,7 @@ class Application:
     def mark_post(self, mark):
         argd = self.find_post_args()
 
-        tags = tagbase.split_marks(argd['tags'])
+        tags = tagbase.split_tags(argd['tags'])
         self.base.edit1(mark, argd['title'], argd['href'], argd['extra'], tags)
 
         # Since the URL stays the same, we eschew 303 here.
