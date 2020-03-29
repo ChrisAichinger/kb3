@@ -6,6 +6,7 @@ slasti_js_dir = (function () {
     return scriptFolder;
 })()
 
+
 $(document).ready(function() {
     var favIcon = "\
     iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAM1BMVEWAF46iDrilHbawPcO1\
@@ -41,6 +42,14 @@ $(document).ready(function() {
             timeout = setTimeout(later, wait);
             if (callNow) func.apply(context, args);
         };
+    };
+    const copyToClipboard = str => {
+      const el = document.createElement('textarea');
+      el.value = str;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
     };
     function urlX(url) {
         if (/^https?:\/\//.test(url)
@@ -296,6 +305,16 @@ $(document).ready(function() {
             }
         });
     }
+
+    function copyMarkToClipboard(bookmarkEl) {
+        var title_el = bookmarkEl.find(".mark_link");
+        var title = title_el.text();
+        var bm_url = bookmarkEl.find(".mark").attr("href");
+        var link = "[" + title + "](" + bm_url + ")";
+        copyToClipboard(link);
+        title_el.fadeOut(100).fadeIn(100).fadeOut(100).fadeIn(100);
+    }
+
     if ($("#global-edit-link").length > 0) {
         $(window).bind('keydown', function(evt) {
             if (document.activeElement && document.activeElement.tagName == 'INPUT' && document.activeElement.type == 'text') {
@@ -307,6 +326,13 @@ $(document).ready(function() {
                 evt.preventDefault();
                 location.href = $("#global-edit-link").attr('href');
             }
+            if (key == 'c') {
+                evt.preventDefault();
+                copyMarkToClipboard($(".bookmark"));
+            }
         });
     }
+    $(".copyButton").click(function(evt) {
+        copyMarkToClipboard($(evt.target).closest('.bookmark'));
+    });
 });

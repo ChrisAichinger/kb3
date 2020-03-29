@@ -154,10 +154,10 @@ div.olControlAttribution {
     position: relative;
 }
 
-.mark_edit_link {
+.mark_mini_actions {
     display: none;
 }
-.mark_meta_links.enable_edit .mark_edit_link {
+.mark_meta_links.enable_edit .mark_mini_actions {
     display: inline;
 }
 
