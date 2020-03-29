@@ -175,6 +175,7 @@ def do_user(environ, start_response, path):
 
     scheme = environ.get('wsgi.url_scheme', 'http')
     method = environ['REQUEST_METHOD']
+    host = environ['HTTP_HOST']
     if method == 'POST':
         try:
             clen = int(environ["CONTENT_LENGTH"])
@@ -229,7 +230,7 @@ def do_user(environ, start_response, path):
 
     remote_user = environ.get('slasti.logged_in_user') or \
                   environ.get('REMOTE_USER')
-    app = slasti.main.Application(pfx, user, base, scheme, method, path, q, pinput, c,
+    app = slasti.main.Application(pfx, user, base, scheme, method, host, path, q, pinput, c,
                                   remote_user, start_response)
     output = app.process_request()
 

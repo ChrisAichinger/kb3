@@ -253,13 +253,14 @@ class SearchStrParser:
 
 class Application:
     def __init__(self, basepath, user, db,
-                 scheme, method, path, query, pinput, cookies, remote_user,
+                 scheme, method, host, path, query, pinput, cookies, remote_user,
                  start_response):
         self.basepath = basepath
         self.user = user
         self.base = db
         self.scheme = scheme
         self.method = method
+        self.host = host
         self.path = path
         self.query = query
         self.pinput = pinput
@@ -268,6 +269,7 @@ class Application:
         self.respond = start_response
         self.userpath = self.basepath + '/' + self.user["name"]
         self.staticpath = self.basepath + '/static_files'
+        self.full_userurl = f"{scheme}://{host}/{self.userpath.strip('/')}/"
 
         self.is_logged_in = self.login_verify()
 
@@ -311,6 +313,7 @@ class Application:
         jsondict = {
                     "s_baseurl": self.basepath,
                     "s_userurl": self.userpath,
+                    "s_full_userurl": self.full_userurl,
                     "s_staticurl": self.staticpath,
                     "s_username": self.user["name"],
                    }
