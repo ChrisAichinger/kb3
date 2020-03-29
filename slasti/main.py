@@ -517,15 +517,18 @@ class Application:
 
     def new_form(self):
         title = self.get_query_arg('title')
-        href = self.get_query_arg('href')
-        similar = self.base.find_by_url(href)
+        url = self.get_query_arg('href') or ''
+        mark = tagbase.DBMark(title=title, url=url)
+        same_url_marks = self.base.find_by_url(url)
+        similar = self.base.find_similar(mark)
 
         jsondict = self.create_jsondict()
         jsondict.update({
-                "mark": tagbase.DBMark(title=title, url=href),
+                "mark": mark,
                 "current_tag": "[" + WHITESTAR + "]",
                 "s_action_edit": self.userpath + '/edit',
                 "s_action_delete": None,
+                "same_url_marks": same_url_marks,
                 "similar_marks": similar,
             })
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
@@ -537,6 +540,8 @@ class Application:
         if not mark:
             raise App400Error("not found: " + mark_str)
 
+        similar = self.base.find_similar(mark)
+
         jsondict = self.create_jsondict()
         jsondict.update({
             "mark": mark,
@@ -544,6 +549,7 @@ class Application:
             "href_current_tag": url_mark(mark, self.userpath),
             "s_action_edit": url_mark(mark, self.userpath),
             "s_action_delete": self.userpath + '/delete',
+            "similar_marks": similar,
             })
 
         self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])

@@ -57,9 +57,25 @@
 </form>
 % endif
 
-% if similar_marks:
+% if same_url_marks:
     <p>
     Already bookmarked:
+    <ul>
+    % for smark in same_url_marks:
+    <li>
+        ${time.strftime('%Y-%m-%d', time.gmtime(smark.time))}
+        [<a href="mark.${smark.key_str()}">&#9734;</a>]
+        <a href="${smark.url | filter.attr}"
+            >${smark.title or smark.url | filter.html}</a>
+    </li>
+    % endfor
+    </ul>
+    </p>
+% endif
+
+% if similar_marks:
+    <p>
+    Similar:
     <ul>
     % for smark in similar_marks:
     <li>

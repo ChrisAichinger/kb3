@@ -5,14 +5,17 @@
 # See file COPYING for licensing information (expect GPL 2).
 #
 
-
-
+import sys
 import os
 import time
 import cgi
-import difflib
+import re
 import sqlite3
 import urllib.parse
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
+from nltk.corpus import stopwords as nltk_stopwords
 
 from slasti import AppError
 import slasti
@@ -216,3 +219,34 @@ class SlastiDB:
 
     def find_by_url(self, url):
         return list(self._get_marks(url=url))
+
+    @staticmethod
+    def _similarity(marks, mark, column, **kwargs):
+        db_texts = [m[column] for m in marks]
+        mark_text = mark[column] or ''
+        vectorizer = TfidfVectorizer(**kwargs)
+        db_vec = vectorizer.fit_transform(db_texts)
+        #db_vecs[column] = vectorizer, db_vec
+        #vectorizer, db_vec = db_vecs[column]
+
+        mark_vec = vectorizer.transform([mark_text])
+        return linear_kernel(db_vec, mark_vec).flatten()
+
+    def find_similar(self, mark, *, stopwords=None, num=10):
+        marks = [m for m in self._get_marks() if m.id != getattr(mark, 'id', None)]
+
+        data = [mark.__dict__.copy()] + [m.__dict__.copy() for m in marks]
+        for m in data:
+            m['tags'] = ' '.join(m['tags'] or '')
+            h = re.match(r'[^/]*///*([^/]*)', m['url'] or '')
+            m['host'] = h.group(1) if h else ''
+        mark_data, *marks_data = data
+
+        sim = (
+            0.15 * self._similarity(marks_data, mark_data, 'tags') +
+            0.50 * self._similarity(marks_data, mark_data, 'title', stop_words=stopwords) +
+            0.25 * self._similarity(marks_data, mark_data, 'note', stop_words=stopwords) +
+            0.10 * self._similarity(marks_data, mark_data, 'host', token_pattern='.*')
+        )
+        best = sim.argsort()
+        return [marks[i] for i in best[:-num:-1]]
