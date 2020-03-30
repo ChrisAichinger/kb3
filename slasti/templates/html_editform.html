@@ -76,12 +76,17 @@
 % if similar_marks:
     <p>
     Similar:
-    <ul>
+    <ul class="similarList">
     % for smark in similar_marks:
-    <li>
+    <li class="similarListElement">
         ${time.strftime('%Y-%m-%d', time.gmtime(smark.time))}
-        [<a href="mark.${smark.key_str()}">&#9734;</a>]
-        <a href="${smark.url | filter.attr}"
+        [<span class="mark_meta_links"
+           ><a href="${s_userurl}/mark.${smark.key_str()}" class="mark">&#9734;</a
+           ><sup class="mark_mini_actions"
+             ><a href="javascript:void(0)" class="copyButton">c</a
+           ></sup
+         ></span>]
+        <a href="${smark.url | filter.attr}" class="mark_link"
             >${smark.title or smark.url | filter.html}</a>
     </li>
     % endfor

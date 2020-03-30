@@ -75,12 +75,22 @@ $(document).ready(function() {
     $("#extra-text").bind('input propertychange',
                           debounce(parseAndRender, 50));
 
+    var canHideMetaLinks = {};
     $(".mark_meta_links").hover(
         function () {
+            var markUrl = $(this).find(".mark").attr("href");
+            canHideMetaLinks[markUrl] = false;
             $(this).addClass("enable_edit");
         },
         function () {
-            $(this).removeClass("enable_edit");
+            var thisJQ = $(this);
+            var markUrl = $(this).find(".mark").attr("href");
+            canHideMetaLinks[markUrl] = true;
+            setTimeout(function(){
+                if (canHideMetaLinks[markUrl]) {
+                    thisJQ.removeClass("enable_edit");
+                }
+            }, 500);
         }
     );
 
@@ -320,6 +330,12 @@ $(document).ready(function() {
             if (document.activeElement && document.activeElement.tagName == 'INPUT' && document.activeElement.type == 'text') {
                 return;  // Don't handle special keypresses if we're in an edit box, let it bubble through.
             }
+            if (document.activeElement && document.activeElement.tagName == 'TEXTAREA') {
+                return;  // Don't handle special keypresses if we're in the note edit area either.
+            }
+            if (evt.shiftKey || evt.ctrlKey || evt.altKey || evt.isComposing) {
+                return;  // Don't catch any special keyboard combos.
+            }
 
             var key = String.fromCharCode(evt.which).toLowerCase();
             if (key == 'e') {
@@ -332,7 +348,10 @@ $(document).ready(function() {
             }
         });
     }
-    $(".copyButton").click(function(evt) {
+    $(".bookmark .copyButton").click(function(evt) {
         copyMarkToClipboard($(evt.target).closest('.bookmark'));
+    });
+    $(".similarListElement .copyButton").click(function(evt) {
+        copyMarkToClipboard($(evt.target).closest('.similarListElement'));
     });
 });
