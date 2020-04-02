@@ -8,10 +8,9 @@
 import sys
 import os
 import time
-import cgi
+import pickle
 import re
 import sqlite3
-import urllib.parse
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
@@ -73,6 +72,7 @@ class DBTag:
     def __str__(self):
         return self.name
 
+
 class SlastiDB:
     def __init__(self, dirname):
         self.dirname = dirname.rstrip('/')
@@ -82,8 +82,11 @@ class SlastiDB:
         self.dbconn = sqlite3.connect(self.dbfname)
         self.dbconn.row_factory = sqlite3.Row
         self.dbconn.execute("PRAGMA foreign_keys = ON;")
+
+        self.cache = DBCache(self.dbconn)
         if must_create_schema:
             self._create_schema()
+            self.cache.create_schema()
 
     def _create_schema(self):
         self.dbconn.executescript("""
@@ -138,6 +141,7 @@ class SlastiDB:
             cur.execute("SELECT tag_id FROM tags WHERE tag = ?;", (tag,))
             t_id = cur.fetchone()[0]
             cur.execute("INSERT INTO mark_tags VALUES (?, ?);", (m_id, t_id))
+        self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
         return m_id
 
@@ -158,6 +162,7 @@ class SlastiDB:
             cur.execute("INSERT INTO mark_tags VALUES (?,?);", (mark.id, t_id))
         cur.execute("""DELETE FROM tags WHERE tag_id NOT IN
                               (SELECT mark_tags.tag_id FROM mark_tags);""")
+        self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
         return mark.id
 
@@ -219,33 +224,115 @@ class SlastiDB:
     def find_by_url(self, url):
         return list(self._get_marks(url=url))
 
-    @staticmethod
-    def _similarity(marks, mark, column, **kwargs):
-        db_texts = [m[column] for m in marks]
-        mark_text = mark[column] or ''
-        vectorizer = TfidfVectorizer(**kwargs)
-        db_vec = vectorizer.fit_transform(db_texts)
-        #db_vecs[column] = vectorizer, db_vec
-        #vectorizer, db_vec = db_vecs[column]
+    def find_similar(self, mark, *, stopwords=None, num=10):
+        cached_search = self.cache.get('similarity')
+        if cached_search:
+            search = SimilaritySearch.deserialize(cached_search)
+        else:
+            search = SimilaritySearch()
+            search.load_corpus(list(self._get_marks()), stopwords=stopwords)
+            self.cache.set('similarity', search.serialize())
+        similar_ids = search.find_similar_ids(mark, num=num)
+        return [m
+                for id in similar_ids
+                    for m in self._get_marks(mark_id=id)]
 
+
+class DBCache:
+    def __init__(self, dbconn):
+        self.dbconn = dbconn
+
+    def create_schema(self):
+        self.dbconn.executescript("""
+            CREATE TABLE cache(
+                key TEXT UNIQUE NOT NULL,                 -- cache key
+                value BLOB,                               -- cached value
+                change_id INTEGER NOT NULL DEFAULT 0,     -- incremented on any DB write
+                refresh_id INTEGER NOT NULL DEFAULT -1,   -- equals change_id if up to date
+
+                PRIMARY KEY (key)
+            );
+        """)
+
+    def invalidate_cursor(self, cur):
+        cur.execute("UPDATE cache SET change_id = change_id + 1")
+
+    def invalidate(self):
+        cur = self.dbconn.cursor()
+        self.invalidate_cursor(cur)
+        self.dbconn.commit()
+
+    def set(self, key, value):
+        row = self.dbconn.execute("SELECT change_id FROM cache where key = ?", (key,)).fetchone()
+        current_change_id = row['change_id'] if row else None
+
+        cur = self.dbconn.cursor()
+        cur.execute("""
+             INSERT INTO cache(key, value) VALUES (?, ?)
+             ON CONFLICT (key) DO
+             UPDATE SET value = excluded.value, refresh_id = ?
+             """, (key, value, current_change_id))
+        self.dbconn.commit()
+
+    def get(self, key):
+        row = self.dbconn.execute(
+            """SELECT value
+                 FROM cache
+                WHERE key = ?
+                  AND change_id = refresh_id""",
+            (key,)).fetchone()
+        return row['value'] if row else None
+
+
+class SimilaritySearch:
+    def __init__(self):
+        self.vectorizers = dict()  # Vectorizer for each column
+        self.db_vectors = dict()   # Sparse Matrix of documents/terms
+        self.db_ids = []           # Map from matrix indices to Mark IDs
+
+    def serialize(self):
+        return pickle.dumps(self)
+
+    @classmethod
+    def deserialize(cls, s):
+        return pickle.loads(s)
+
+    def load_corpus(self, all_marks, stopwords=None):
+        marks_data = [self._mark_to_dict(m) for m in all_marks]
+        self._load_column_corpus(marks_data, 'tags')
+        self._load_column_corpus(marks_data, 'title', stop_words=stopwords)
+        self._load_column_corpus(marks_data, 'note', stop_words=stopwords)
+        self._load_column_corpus(marks_data, 'host', token_pattern='.*')
+        self.db_ids = [m['id'] for m in marks_data]
+
+    def find_similar_ids(self, mark, *, num=10):
+        mark_id = getattr(mark, 'id', None)
+        mark_data = self._mark_to_dict(mark)
+        sim = (
+            0.15 * self._similarity(mark_data, 'tags') +
+            0.50 * self._similarity(mark_data, 'title') +
+            0.25 * self._similarity(mark_data, 'note') +
+            0.10 * self._similarity(mark_data, 'host')
+        )
+        best_doc_indices = sim.argsort()
+        best_mark_ids = [self.db_ids[i] for i in best_doc_indices[:-num-1:-1]]
+        return [bm_id for bm_id in best_mark_ids if bm_id != mark_id][:num]
+
+    def _load_column_corpus(self, marks, column, **kwargs):
+        db_texts = [m[column] for m in marks]
+        self.vectorizers[column] = TfidfVectorizer(**kwargs)
+        self.db_vectors[column] = self.vectorizers[column].fit_transform(db_texts)
+
+    def _similarity(self, mark, column, **kwargs):
+        vectorizer = self.vectorizers[column]
+        db_vec = self.db_vectors[column]
+        mark_text = mark[column] or ''
         mark_vec = vectorizer.transform([mark_text])
         return linear_kernel(db_vec, mark_vec).flatten()
 
-    def find_similar(self, mark, *, stopwords=None, num=10):
-        marks = [m for m in self._get_marks() if m.id != getattr(mark, 'id', None)]
-
-        data = [mark.__dict__.copy()] + [m.__dict__.copy() for m in marks]
-        for m in data:
-            m['tags'] = ' '.join(m['tags'] or '')
-            h = re.match(r'[^/]*///*([^/]*)', m['url'] or '')
-            m['host'] = h.group(1) if h else ''
-        mark_data, *marks_data = data
-
-        sim = (
-            0.15 * self._similarity(marks_data, mark_data, 'tags') +
-            0.50 * self._similarity(marks_data, mark_data, 'title', stop_words=stopwords) +
-            0.25 * self._similarity(marks_data, mark_data, 'note', stop_words=stopwords) +
-            0.10 * self._similarity(marks_data, mark_data, 'host', token_pattern='.*')
-        )
-        best = sim.argsort()
-        return [marks[i] for i in best[:-num:-1]]
+    def _mark_to_dict(self, mark):
+        m = mark.__dict__.copy()
+        m['tags'] = ' '.join(m['tags'] or '')
+        h = re.match(r'[^/]*///*([^/]*)', m['url'] or '')
+        m['host'] = h.group(1) if h else ''
+        return m
