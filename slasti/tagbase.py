@@ -368,4 +368,7 @@ class SimilaritySearch:
         m['tags'] = ' '.join(m['tags'] or '')
         h = re.match(r'[^/]*///*([^/]*)', m['url'] or '')
         m['host'] = h.group(1) if h else ''
+        for ih in self.ignore_hosts:
+            if ih in m['host']:
+                m['host'] = ''
         return m
