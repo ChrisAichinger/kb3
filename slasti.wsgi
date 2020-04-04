@@ -140,7 +140,10 @@ def do_user(environ, start_response, path):
     if user == None:
         raise App404Error("No such user: "+parsed[1])
 
-    base = slasti.tagbase.SlastiDB(user['root'])
+    base = slasti.tagbase.SlastiDB(user['root'],
+                                   stopwords=user.get('stopwords', []),
+                                   stopword_languages=user.get('stopword_languages', []),
+                                   ignore_hosts_in_search=user.get('ignore_hosts_in_search', []))
 
     path = parsed[2] if len(parsed) >= 3 else ""
     q = environ.get('QUERY_STRING', None)
@@ -162,10 +165,6 @@ def do_user(environ, start_response, path):
     return output
 
 def application(environ, start_response):
-
-    # import os, pwd
-    # os.environ["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
-
     path = environ['PATH_INFO']
     if path and not isinstance(path, str):
         try:
@@ -229,6 +228,6 @@ def application(environ, start_response):
                        [('Content-type', 'text/plain'), ('Allow', 'GET, POST')])
         return [b"405 Method " + str(e).encode("utf-8") + b" not allowed\r\n"]
 
-# We do not have __main__ in WSGI.
-# if __name__.startswith('_mod_wsgi_'):
-#    ...
+# from wsgi_lineprof.middleware import LineProfilerMiddleware
+# from wsgi_lineprof.filters import FilenameFilter, TotalTimeSorter
+# application = LineProfilerMiddleware(application, filters=[FilenameFilter(r"main.py|tagbase.py|slasti.wsgi", regex=True), TotalTimeSorter()])

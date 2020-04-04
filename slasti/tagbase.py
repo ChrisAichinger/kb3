@@ -7,11 +7,14 @@
 
 import sys
 import os
-import time
+import functools
+import multiprocessing as mp
 import pickle
 import re
 import sqlite3
+import time
 
+from nltk.corpus import stopwords as nltk_stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 
@@ -73,8 +76,13 @@ class DBTag:
         return self.name
 
 
+@functools.lru_cache(maxsize=None)
+def stopwords_from_language(lang):
+    return nltk_stopwords.words(lang)
+
+
 class SlastiDB:
-    def __init__(self, dirname):
+    def __init__(self, dirname, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
         self.dirname = dirname.rstrip('/')
         self.dbfname = self.dirname + '/' + 'bookmarks.db'
         must_create_schema = not os.path.isfile(self.dbfname)
@@ -87,6 +95,14 @@ class SlastiDB:
         if must_create_schema:
             self._create_schema()
             self.cache.create_schema()
+
+        self.stopwords = stopwords
+        if stopword_languages:
+            self.stopwords = list(self.stopwords or [])
+            self.stopwords.extend(
+                w for lang in stopword_languages
+                    for w in stopwords_from_language(lang))
+        self.ignore_hosts_in_search = ignore_hosts_in_search
 
     def _create_schema(self):
         self.dbconn.executescript("""
@@ -112,13 +128,15 @@ class SlastiDB:
         """)
 
     def add1(self, title, url, note, tags):
-        return self.insert(DBMark(from_dict={"mark_id": None,
-                                             "title": title,
-                                             "url": url,
-                                             "note": note,
-                                             "tags": tags,
-                                             "time": int(time.time())
+        result = self.insert(DBMark(from_dict={"mark_id": None,
+                                               "title": title,
+                                               "url": url,
+                                               "note": note,
+                                               "tags": tags,
+                                               "time": int(time.time())
                         }))
+        self.async_update_similarity_cache()
+        return result
 
     def edit1(self, mark, title, url, note, new_tags):
         mark.title = title
@@ -126,6 +144,7 @@ class SlastiDB:
         mark.note = note
         mark.tags = new_tags
         self.update(mark)
+        self.async_update_similarity_cache()
 
     def insert(self, mark):
         cur = self.dbconn.cursor()
@@ -224,18 +243,30 @@ class SlastiDB:
     def find_by_url(self, url):
         return list(self._get_marks(url=url))
 
-    def find_similar(self, mark, *, stopwords=None, num=10):
+    def find_similar(self, mark, *, num=10):
         cached_search = self.cache.get('similarity')
         if cached_search:
             search = SimilaritySearch.deserialize(cached_search)
         else:
-            search = SimilaritySearch()
-            search.load_corpus(list(self._get_marks()), stopwords=stopwords)
-            self.cache.set('similarity', search.serialize())
+            print("Warning: Out-of-date similarity cache found", file=sys.stderr, flush=True)
+            search = self._refresh_similarity_cache()
         similar_ids = search.find_similar_ids(mark, num=num)
         return [m
                 for id in similar_ids
                     for m in self._get_marks(mark_id=id)]
+
+    def async_update_similarity_cache(self):
+        def f(dirname, stopwords, ignore_hosts_in_search):
+            db = SlastiDB(dirname, stopwords=stopwords, ignore_hosts_in_search=ignore_hosts_in_search)
+            db._refresh_similarity_cache()
+        p = mp.Process(target=f, args=(self.dirname, self.stopwords, self.ignore_hosts_in_search))
+        p.start()
+
+    def _refresh_similarity_cache(self):
+        search = SimilaritySearch(self.stopwords, self.ignore_hosts_in_search)
+        search.load_corpus(list(self._get_marks()))
+        self.cache.set('similarity', search.serialize())
+        return search
 
 
 class DBCache:
@@ -285,7 +316,9 @@ class DBCache:
 
 
 class SimilaritySearch:
-    def __init__(self):
+    def __init__(self, stopwords, ignore_hosts):
+        self.stopwords = stopwords
+        self.ignore_hosts = ignore_hosts
         self.vectorizers = dict()  # Vectorizer for each column
         self.db_vectors = dict()   # Sparse Matrix of documents/terms
         self.db_ids = []           # Map from matrix indices to Mark IDs
@@ -297,11 +330,11 @@ class SimilaritySearch:
     def deserialize(cls, s):
         return pickle.loads(s)
 
-    def load_corpus(self, all_marks, stopwords=None):
+    def load_corpus(self, all_marks):
         marks_data = [self._mark_to_dict(m) for m in all_marks]
         self._load_column_corpus(marks_data, 'tags')
-        self._load_column_corpus(marks_data, 'title', stop_words=stopwords)
-        self._load_column_corpus(marks_data, 'note', stop_words=stopwords)
+        self._load_column_corpus(marks_data, 'title', stop_words=self.stopwords)
+        self._load_column_corpus(marks_data, 'note', stop_words=self.stopwords)
         self._load_column_corpus(marks_data, 'host', token_pattern='.*')
         self.db_ids = [m['id'] for m in marks_data]
 

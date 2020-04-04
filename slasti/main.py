@@ -13,7 +13,6 @@ import urllib.request, urllib.parse, urllib.error
 import base64
 import hashlib
 
-from nltk.corpus import stopwords as nltk_stopwords
 
 import slasti
 import slasti.template
@@ -354,8 +353,7 @@ class Application:
 
     def _edit_form(self, mark, new):
         same_url_marks = self.base.find_by_url(mark.url) if new else []
-        stopwords = [w for lang in self.user['stopwords'] for w in nltk_stopwords.words(lang)]
-        similar = self.base.find_similar(mark, stopwords=stopwords)
+        similar = self.base.find_similar(mark)
 
         jsondict = self.create_jsondict()
         jsondict.update({
