@@ -1,41 +1,40 @@
-## -*- coding: utf-8 -*-
 <table class="bar_top">
 <tr valign="top">
     <td align="left">
         <h2 class="username">
-            <a href="${s_userurl}" id="userlink">${s_username}</a> /
-            % if href_current_tag:
-                <a href="${href_current_tag | filter.attr}">
-            % endif
-            % if current_tag:
-                ${current_tag | filter.html}
-            % else:
+            <a href="{{s_userurl}}" id="userlink">{{s_username}}</a> /
+            {% if href_current_tag %}
+                <a href="{{href_current_tag|e}}">
+            {% endif %}
+            {% if current_tag %}
+                {{current_tag|e}}
+            {% else %}
                 &#9733;
-            % endif
-            % if href_current_tag:
+            {% endif %}
+            {% if href_current_tag %}
                 </a>
-            % endif
+            {% endif %}
         </h2>
     </td>
     <td align="right">
-        % if show_login:
-            [<a href="${href_login | filter.attr}">login</a>]
-        % endif
-        [<b><a href="${s_userurl}/tags">tags</a></b>]
-        [<a href="${s_userurl}/new">new</a>]
-        % if show_export:
-            [<a href="${s_userurl}/export.xml">e</a>]
-        % else:
+        {% if show_login %}
+        [<a href="{{href_login|e}}">login</a>]
+        {% endif %}
+        [<b><a href="{{s_userurl}}/tags">tags</a></b>]
+        [<a href="{{s_userurl}}/new">new</a>]
+        {% if show_export %}
+            [<a href="{{s_userurl}}/export.xml">e</a>]
+        {% else %}
             [e]
-        % endif
+        {% endif %}
         [<a id='loc_parse' href='javascript:void(0)'>map</a>]
         <abbr title="tag:ai & !machine-learning | (a & b)">Search</abbr>:
-        <form method="GET" action="${s_userurl}/search">
-        <input type="text" name="q" value="${val_search or '' | filter.attr}" />
+        <form method="GET" action="{{s_userurl}}/search">
+            <input type="text" name="q" value="{{(val_search or '')|e}}" />
         <input type="submit" value="Go" />
         </form>
     </td>
 </tr></table>
-% if search_error:
-    <pre>${search_error | filter.html}</pre>
-% endif
+{% if search_error %}
+    <pre>{{search_error}}</pre>
+{% endif %}

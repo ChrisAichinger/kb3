@@ -1,13 +1,12 @@
-## -*- coding: utf-8 -*-
-<%include file="html_header.html"/>
+{%include "html_header.html" %}
 
-<form action="${s_action_login}" method="POST">
-  ${s_username}:
+<form action="{{s_action_login}}" method="POST">
+  {{s_username}}:
   <input name=password type=password size=32 maxlength=32 />
   <input name=OK type=submit value="Enter" />
-  % if savedref:
-  <input name=savedref type=hidden value="${savedref | filter.attr}" />
-  % endif
+  {% if savedref %}
+  <input name=savedref type=hidden value="{{savedref|e}}" />
+  {% endif %}
 </form>
 </body>
 </html>

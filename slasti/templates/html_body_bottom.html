@@ -1,18 +1,17 @@
-## -*- coding: utf-8 -*-
 <hr />
-% if href_page_prev:
-    [<a href="${href_page_prev | filter.attr}">&laquo;</a>]
-% else:
+{% if href_page_prev %}
+    [<a href="{{href_page_prev|e}}">&laquo;</a>]
+{% else %}
     [-]
-% endif
-% if href_page_this:
-    [<a href="${href_page_this | filter.attr}">&#9733;</a>]
-% else:
+{% endif %}
+{% if href_page_this %}
+    [<a href="{{href_page_this|e}}">&#9733;</a>]
+{% else %}
     [-]
-% endif
-% if href_page_next:
-    [<a href="${href_page_next | filter.attr}">&raquo;</a>]
-% else:
+{% endif %}
+{% if href_page_next %}
+    [<a href="{{href_page_next|e}}">&raquo;</a>]
+{% else %}
     [-]
-% endif
+{% endif %}
 </body></html>

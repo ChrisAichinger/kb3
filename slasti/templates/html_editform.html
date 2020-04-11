@@ -1,34 +1,26 @@
-## -*- coding: utf-8 -*-
-<%! import time %>
-<%
-    title = ""
-    url = ""
-    tags = ""
-    note = ""
-    if mark:
-        title = mark.title or ""
-        url = mark.url or ""
-        tags = ' '.join(mark.tags or [])
-        note = mark.note or ""
-%>
-<%include file="html_header.html"/>
-<%include file="html_body_top.html"/>
-<form action="${s_action_edit}" method="POST" name="editform">
+{%set title = mark.title or "" %}
+{%set url = mark.url or "" %}
+{%set tags = ' '.join(mark.tags or []) %}
+{%set note = mark.note or "" %}
+
+{%include "html_header.html"%}
+{%include "html_body_top.html"%}
+<form action="{{s_action_edit}}" method="POST" name="editform">
 <div class="editform-container">
   <div class="editform-elem margin-above">Title</div>
   <div class="editform-elem flex-container">
     <input name="title" type="text" maxlength=1024 id="edt_title"
-             value="${title | filter.attr}" />
+             value="{{title|e}}" />
   </div>
   <div class="editform-elem margin-above">URL</div>
-  <input name="href" type="text" maxlength=1024 value="${url | filter.attr}"/>
+  <input name="href" type="text" maxlength=1024 value="{{url|e}}"/>
 
   <div class="editform-elem margin-above">Tags</div>
-  <input name="tags" type="text" maxlength=1024 value="${tags | filter.attr}"/>
+  <input name="tags" type="text" maxlength=1024 value="{{tags|e}}"/>
 
   <div class="editform-elem margin-above">Extra</div>
   <div class="flex-container">
-    <textarea name="extra" type="text" id="extra-text" rows=12>${note | filter.html}</textarea>
+    <textarea name="extra" type="text" id="extra-text" rows=12>{{note|e}}</textarea>
   </div>
 
    <div id="cheatsheet_wrap" class="editform-elem-colspan alignRight posRelative">
@@ -48,36 +40,34 @@
 </div>
 </form>
 
-% if s_action_delete:
+{% if s_action_delete %}
 <p>or</p>
-<form action="${s_action_delete}" method="POST">
-  <input name=mark type=hidden value="${mark.key_str()}" />
+<form action="{{s_action_delete}}" method="POST">
+  <input name=mark type=hidden value="{{mark.key_str()}}" />
   <input name=action type=submit value="Delete" />
   (There is no undo.)
 </form>
-% endif
+{% endif %}
 
-% if same_url_marks:
+{% if same_url_marks %}
     <p>
     Already bookmarked:
     <ul>
-    % for smark in same_url_marks:
+    {% for smark in same_url_marks %}
     <li>
-        ${time.strftime('%Y-%m-%d', time.gmtime(smark.time))}
-        [<a href="mark.${smark.key_str()}">&#9734;</a>]
-        <a href="${smark.url | filter.attr}"
-            >${smark.title or smark.url | filter.html}</a>
+        {{smark.time | format_date}}
+        [<a href="mark.{{smark.key_str()}}">&#9734;</a>]
+        <a href="{{smark.url|e}}"
+            >{{(smark.title or smark.url)|e}}</a>
     </li>
-    % endfor
+    {% endfor %}
     </ul>
     </p>
-% endif
+{% endif %}
 
-% if similar_marks:
-    <p>
-    <%include file="similar.html"/>
-    </p>
-% endif
+{% if similar_marks %}
+    <p>{%include "similar.html"%}</p>
+{% endif %}
 
 <div id="extra-rendered-container" style="display: none">
   <h2>Comment (rendered)</h2>

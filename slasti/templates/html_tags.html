@@ -1,11 +1,9 @@
-## -*- coding: utf-8 -*-
-<%include file="html_header.html"/>
-<%include file="html_body_top.html"/>
+{%include "html_header.html"%}
+{%include "html_body_top.html"%}
 <p>
-% for tag in tags:
-<a href="${s_userurl}/${tag.name | filter.attr}/"
-    >${tag | filter.html}</a> ${tag.num_marks}<br />
-% endfor
+{% for tag in tags %}
+<a href="{{s_userurl}}/{{tag.name|e}}/">{{tag|e}}</a> {{tag.num_marks}}<br />
+{% endfor %}
 </p>
 <hr />
 </body></html>

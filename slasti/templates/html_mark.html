@@ -1,39 +1,35 @@
-## -*- coding: utf-8 -*-
-<%! import time %>
-<%include file="html_header.html"/>
-<%include file="html_body_top.html"/>
-% for mark in marks:
-    <div class="bookmark" data-mark-id="${mark.key_str()}">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
+{%include "html_header.html" %}
+{%include "html_body_top.html" %}
+{% for mark in marks %}
+    <div class="bookmark" data-mark-id="{{mark.key_str()}}">{{mark.time | format_date}}
       [<span class="mark_meta_links"
-         ><a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a
+         ><a href="{{s_userurl}}/mark.{{mark.key_str()}}" class="mark">&#9734;</a
          ><span class="mark_mini_actions">
-           <abbr title="[E]dit"><a href="${s_userurl}/edit?mark=${mark.key_str()}"><%include file="../static_files/pencil.svg"/></a></abbr>
-            <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton"><%include file="../static_files/copy.svg"/></a></abbr>
-            <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton"><%include file="../static_files/similar.svg"/></a></abbr
+           <abbr title="[E]dit"><a href="{{s_userurl}}/edit?mark={{mark.key_str()}}">{%include "pencil.svg" %}</a></abbr>
+            <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton">{%include "copy.svg"%}</a></abbr>
+            <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton">{%include "similar.svg"%}</a></abbr
          ></span
        ></span>]
-      <a href="${mark.url | filter.attr}" class="mark_link"
-          >${mark.title | filter.html}</a><br />
-      % for tag in mark.tags:
-          % if tag:
-          <a href="${s_userurl}/${tag | filter.attr}/" class="mark_tag"
-                  >${tag | filter.html}</a>
-          % else:
+      <a href="{{mark.url|e}}" class="mark_link">{{mark.title | e}}</a><br />
+      {% for tag in mark.tags %}
+          {% if tag %}
+          <a href="{{s_userurl}}/{{tag|e}}/" class="mark_tag">{{tag|e}}</a>
+          {% else %}
               -
-          % endif
-      % endfor
-      % if not mark.tags:
+          {% endif %}
+      {% endfor %}
+      {% if not mark.tags %}
       -
-      % endif
-      % if mark.note:
-          <div class="note">${mark.note | filter.html}</div>
-      % endif
+      {% endif %}
+      {% if mark.note %}
+          <div class="note">{{mark.note|e}}</div>
+      {% endif %}
       <div class="similar"></div>
     </div>
-    %if show_edit:
+    {%if show_edit %}
         <p>
-        [<a href="${s_userurl}/edit?mark=${mark.key_str()}" id="global-edit-link">edit</a>]
+        [<a href="{{s_userurl}}/edit?mark={{mark.key_str()}}" id="global-edit-link">edit</a>]
         </p>
-    %endif
-% endfor
-<%include file="html_body_bottom.html"/>
+    {%endif %}
+{% endfor %}
+{%include "html_body_bottom.html" %}

@@ -1,17 +1,16 @@
-<%! import time %>
 Similar:
 <ul class="similarList">
-% for smark in similar_marks:
+{% for smark in similar_marks %}
 <li class="similarListElement">
-    ${time.strftime('%Y-%m-%d', time.gmtime(smark.time))}
+    {{smark.time | format_date}}
     [<span class="mark_meta_links"
-       ><a href="${s_userurl}/mark.${smark.key_str()}" class="mark">&#9734;</a
+       ><a href="{{s_userurl}}/mark.{{smark.key_str()}}" class="mark">&#9734;</a
        ><sup class="mark_mini_actions"
          ><a href="javascript:void(0)" class="copyButton">c</a
        ></sup
      ></span>]
-    <a href="${smark.url | filter.attr}" class="mark_link"
-        >${smark.title or smark.url | filter.html}</a>
+    <a href="{{smark.url|e}}" class="mark_link"
+        >{{(smark.title or smark.url) | e}}</a>
 </li>
-% endfor
+{% endfor %}
 </ul>

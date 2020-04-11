@@ -2,6 +2,7 @@
 # Slasti -- Main Application
 #
 # Copyright (C) 2011 Pete Zaitcev
+# Copyright (C) 2012-2020 Christian Aichinger
 # See file COPYING for licensing information (expect GPL 2).
 #
 
@@ -296,8 +297,7 @@ class Application:
         if pwstr != self.user['pass']:
             self.respond("403 Not Permitted",
                          [('Content-type', 'text/plain; charset=utf-8')])
-            jsondict = { "output": "403 Not Permitted: Bad Password\r\n" }
-            return [slasti.template.render("simple_output.txt", jsondict)]
+            return ["403 Not Permitted: Bad Password\r\n"]
 
         csalt = base64.b64encode(os.urandom(6)).decode("utf-8")
         flags = "-"
