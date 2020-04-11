@@ -165,6 +165,31 @@ div.olControlAttribution {
     display: inline;
 }
 
+.mark_mini_actions a {
+    background-color: rgb(131, 10, 128);
+    color: rgb(255, 255, 255);
+    padding: 0px;
+    border-radius: 3px;
+    box-shadow: rgb(0, 0, 0) 1px 1px 2px 0px;
+    border: 1px solid rgb(69, 5, 68);
+    text-decoration: none;
+    width: 0.8em;
+    height: 0.8em;
+    display:inline-block;
+    text-align:center;
+    vertical-align: middle;
+    position:relative;
+}
+
+.mark_mini_actions svg, .mark_mini_actions img {
+    width: 0.6em;
+    height: 0.6em;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
 @media only screen and (min-width: 768px) {
     div.editform-container {
         grid-template-columns: max-content minmax(max-content, 1fr);

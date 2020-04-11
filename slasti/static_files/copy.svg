@@ -1,0 +1,15 @@
+<svg width="1em" height="1em" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+     d="M    2  7   a 2 2 0 0 1  2 -2
+        l  3.5  0   a 2 2 0 0 1  2  2
+        l    0  6   a 2 2 0 0 1 -2  2
+        l -3.5  0   a 2 2 0 0 1 -2 -2
+        z
+
+        M 5 5
+        l  0 -1     a 2 2 0 0 1  2 -2
+        l  4  0     a 2 2 0 0 1  2  2
+        l  0  6     a 2 2 0 0 1 -2  2
+        l -1  0
+     "/>
+</svg>

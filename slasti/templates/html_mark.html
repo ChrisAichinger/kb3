@@ -6,11 +6,11 @@
     <div class="bookmark" data-mark-id="${mark.key_str()}">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
       [<span class="mark_meta_links"
          ><a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a
-         ><sup class="mark_mini_actions"
-           ><a href="${s_userurl}/edit?mark=${mark.key_str()}">e</a>,
-            <a href="javascript:void(0)" class="copyButton">c</a>,
-            <a href="javascript:void(0)" class="similarButton">s</a
-         ></sup
+         ><span class="mark_mini_actions">
+           <abbr title="[E]dit"><a href="${s_userurl}/edit?mark=${mark.key_str()}"><%include file="../static_files/pencil.svg"/></a></abbr>
+            <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton"><%include file="../static_files/copy.svg"/></a></abbr>
+            <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton"><%include file="../static_files/similar.svg"/></a></abbr
+         ></span
        ></span>]
       <a href="${mark.url | filter.attr}" class="mark_link"
           >${mark.title | filter.html}</a><br />
