@@ -31,6 +31,10 @@ ul {
     max-height: 30em;
 }
 
+.similar:not(:empty) {
+    padding-top: 1.2em;
+}
+
 .bookmark {
     padding-left: 0.375em;
     margin-left: 0.125px;

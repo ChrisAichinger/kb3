@@ -325,6 +325,18 @@ $(document).ready(function() {
         title_el.fadeOut(100).fadeIn(100).fadeOut(100).fadeIn(100);
     }
 
+    function toggleSimilar(bm) {
+        var similarEl = bm.find(".similar");
+        if (similarEl.html() == "") {
+            similarEl.html("Loading similar bookmarks...")
+            var markId = bm.attr("data-mark-id");
+            var url = $("#userlink").attr("href") + "/similar.html?mark=" + markId;
+            $.get(url, data => similarEl.html(data));
+        } else {
+            similarEl.html("");
+        }
+    }
+
     if ($("#global-edit-link").length > 0) {
         $(window).bind('keydown', function(evt) {
             if (document.activeElement && document.activeElement.tagName == 'INPUT' && document.activeElement.type == 'text') {
@@ -346,6 +358,10 @@ $(document).ready(function() {
                 evt.preventDefault();
                 copyMarkToClipboard($(".bookmark"));
             }
+            if (key == 's') {
+                evt.preventDefault();
+                toggleSimilar($(".bookmark"));
+            }
         });
     }
     $(".bookmark .copyButton").click(function(evt) {
@@ -353,5 +369,8 @@ $(document).ready(function() {
     });
     $(".similarListElement .copyButton").click(function(evt) {
         copyMarkToClipboard($(evt.target).closest('.similarListElement'));
+    });
+    $(".bookmark .similarButton").click(function(evt) {
+        toggleSimilar($(evt.target).closest('.bookmark'));
     });
 });

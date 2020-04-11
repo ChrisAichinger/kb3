@@ -192,6 +192,9 @@ class Application:
             "search": {
                 "GET": (auth_none, self.full_search_html),
                 },
+            "similar.html": {
+                "GET": (auth_none, self.similar_html),
+                },
         }
         if self.user.get('private', False) and not self.is_logged_in:
             if self.path != 'login':
@@ -460,6 +463,25 @@ class Application:
         jsondict["current_tag"] = "tags"
         jsondict["tags"] = self.base.get_tags()
         return [slasti.template.render("html_tags.html", jsondict)]
+
+    def similar_html(self):
+        if self.method != 'GET':
+            raise AppGetError(self.method)
+
+        mark_str = self.get_query_arg('mark')
+        if not mark_str:
+            raise App400Error("Required argument 'mark' is missing.")
+
+        mark = self.base.lookup(mark_str)
+        if not mark:
+            raise App404Error("Bookmark not found: " + mark_str)
+
+        similar = self.base.find_similar(mark)
+
+        self.respond("200 OK", [('Content-type', 'text/html; charset=utf-8')])
+        jsondict = self.create_jsondict()
+        jsondict.update({"similar_marks": similar})
+        return [slasti.template.render('similar.html', jsondict)]
 
     def full_search_html(self):
         if self.method != 'GET':

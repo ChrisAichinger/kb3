@@ -3,12 +3,13 @@
 <%include file="html_header.html"/>
 <%include file="html_body_top.html"/>
 % for mark in marks:
-    <div class="bookmark">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
+    <div class="bookmark" data-mark-id="${mark.key_str()}">${time.strftime('%Y-%m-%d', time.gmtime(mark.time))}
       [<span class="mark_meta_links"
          ><a href="${s_userurl}/mark.${mark.key_str()}" class="mark">&#9734;</a
          ><sup class="mark_mini_actions"
            ><a href="${s_userurl}/edit?mark=${mark.key_str()}">e</a>,
-            <a href="javascript:void(0)" class="copyButton">c</a
+            <a href="javascript:void(0)" class="copyButton">c</a>,
+            <a href="javascript:void(0)" class="similarButton">s</a
          ></sup
        ></span>]
       <a href="${mark.url | filter.attr}" class="mark_link"
@@ -27,6 +28,7 @@
       % if mark.note:
           <div class="note">${mark.note | filter.html}</div>
       % endif
+      <div class="similar"></div>
     </div>
     %if show_edit:
         <p>
