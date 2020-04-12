@@ -219,10 +219,12 @@ class SlastiDB:
         d["tags"] = d["tags"].split()
         return DBMark(from_dict=d)
 
-    def get_marks(self, *, limit=-1, offset=0, mark_id=None, tag=None, url=None):
+    def get_marks(self, *, limit=-1, offset=0, mark_id=None, not_mark_id=None, tag=None, url=None):
         where_clauses = ["1=1"]
         if mark_id is not None:
             where_clauses.append('mark_id = :mark_id')
+        if not_mark_id is not None:
+            where_clauses.append('mark_id != :not_mark_id')
         if tag is not None:
             where_clauses.append('''mark_id in (SELECT mark_id FROM mark_tags
                                                 JOIN tags USING (tag_id)
@@ -238,8 +240,15 @@ class SlastiDB:
                  ORDER BY mark_id DESC
                     LIMIT :limit
                    OFFSET :offset;"""
-
-        rows = self.dbconn.execute(stmt, dict(mark_id=mark_id, tag=tag, url=url, limit=limit, offset=offset))
+        args = dict(
+            mark_id=mark_id,
+            not_mark_id=not_mark_id,
+            tag=tag,
+            url=url,
+            limit=limit,
+            offset=offset,
+        )
+        rows = self.dbconn.execute(stmt, args)
         return [self._mark_from_dbrow(row) for row in rows]
 
     def lookup(self, mark_id):

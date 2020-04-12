@@ -152,7 +152,7 @@ def new_edit_view(user, mark_id):
     return render_template(
         "html_editform.html",
         mark=mark,
-        same_url_marks=g.db.get_marks(url=mark.url),
+        same_url_marks=g.db.get_marks(url=mark.url, not_mark_id=mark.id),
         similar_marks=g.db.find_similar(mark),
     )
 
