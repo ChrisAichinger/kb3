@@ -219,7 +219,7 @@ class SlastiDB:
         d["tags"] = d["tags"].split()
         return DBMark(from_dict=d)
 
-    def _get_marks(self, *, limit=2**62, offset=0, mark_id=None, tag=None, url=None):
+    def get_marks(self, *, limit=-1, offset=0, mark_id=None, tag=None, url=None):
         where_clauses = ["1=1"]
         if mark_id is not None:
             where_clauses.append('mark_id = :mark_id')
@@ -240,23 +240,13 @@ class SlastiDB:
                    OFFSET :offset;"""
 
         rows = self.dbconn.execute(stmt, dict(mark_id=mark_id, tag=tag, url=url, limit=limit, offset=offset))
-        return (self._mark_from_dbrow(row) for row in rows)
+        return [self._mark_from_dbrow(row) for row in rows]
 
     def lookup(self, mark_id):
-        result = list(self._get_marks(mark_id=int(mark_id)))
+        result = self.get_marks(mark_id=int(mark_id))
         if not result:
             return None
         return result[0]
-
-    def get_headers(self, tag=None):
-        for mark in self.get_marks():
-            yield mark
-
-    def get_marks(self, **kwargs):
-        return self._get_marks(**kwargs)
-
-    def get_tag_marks(self, tag):
-        return self._get_marks(tag=tag)
 
     def get_tags(self):
         rows = self.dbconn.execute(
@@ -266,9 +256,6 @@ class SlastiDB:
                           ORDER BY tag ASC;""")
         for row in rows:
             yield DBTag(row[0], row[1])
-
-    def find_by_url(self, url):
-        return list(self._get_marks(url=url))
 
     def find_similar(self, mark, *, num=10):
         cached_search = self.cache.get('similarity')
@@ -280,7 +267,7 @@ class SlastiDB:
         similar_ids = search.find_similar_ids(mark, num=num)
         return [m
                 for id in similar_ids
-                    for m in self._get_marks(mark_id=id)]
+                    for m in self.get_marks(mark_id=id)]
 
     def async_update_similarity_cache(self):
         def f(dbfname, stopwords, ignore_hosts_in_search):
@@ -291,7 +278,7 @@ class SlastiDB:
 
     def _refresh_similarity_cache(self):
         search = SimilaritySearch(self.stopwords, self.ignore_hosts_in_search)
-        search.load_corpus(list(self._get_marks()))
+        search.load_corpus(self.get_marks())
         self.cache.set('similarity', search.serialize())
         return search
 

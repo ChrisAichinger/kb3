@@ -72,7 +72,7 @@ def list_view(user, tag_name):
         redirect(url_for_current_user('.list_view'), 303)
 
     title = tag_name if tag_name else None
-    marks = list(g.db.get_marks(tag=tag_name, offset=offset, limit=pagesize))
+    marks = g.db.get_marks(tag=tag_name, offset=offset, limit=pagesize)
 
     next_link = prev_link = None
     if offset > 0:
@@ -152,7 +152,7 @@ def new_edit_view(user, mark_id):
     return render_template(
         "html_editform.html",
         mark=mark,
-        same_url_marks=g.db.find_by_url(mark.url),
+        same_url_marks=g.db.get_marks(url=mark.url),
         similar_marks=g.db.find_similar(mark),
     )
 
@@ -205,5 +205,5 @@ def similar_view(user, mark_id):
 
 @bp.route('/<user>/export.xml')
 def export_view(user):
-    marks = g.db.get_marks(limit=2**62)
+    marks = g.db.get_marks()
     return render_template('xml_export.xml', marks=marks)
