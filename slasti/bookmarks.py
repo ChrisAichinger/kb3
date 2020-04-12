@@ -1,4 +1,5 @@
 import os
+import functools
 import re
 import time
 import types
@@ -13,8 +14,9 @@ BLACKSTAR = "\u2605"
 WHITESTAR = "\u2606"
 
 
-def url_for_current_user(*args, **kwargs):
-    return url_for(*args, user=g.user.name, **kwargs)
+@functools.lru_cache(maxsize=2048)
+def url_for_current_user(view, **kwargs):
+    return url_for(view, user=g.user.name, **kwargs)
 
 def format_date(mark_time):
     return time.strftime('%Y-%m-%d', time.gmtime(mark_time))
