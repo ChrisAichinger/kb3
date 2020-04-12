@@ -329,8 +329,7 @@ $(document).ready(function() {
         var similarEl = bm.find(".similar");
         if (similarEl.html() == "") {
             similarEl.html("Loading similar bookmarks...")
-            var markId = bm.attr("data-mark-id");
-            var url = $("#userlink").attr("href") + "/similar.html?mark=" + markId;
+            var url = bm.attr("data-mark-similar-link");
             $.get(url, data => similarEl.html(data));
         } else {
             similarEl.html("");
