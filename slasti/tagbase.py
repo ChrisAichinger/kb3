@@ -82,9 +82,8 @@ def stopwords_from_language(lang):
 
 
 class SlastiDB:
-    def __init__(self, dirname, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
-        self.dirname = dirname.rstrip('/')
-        self.dbfname = self.dirname + '/' + 'bookmarks.db'
+    def __init__(self, dbfname, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
+        self.dbfname = dbfname
         must_create_schema = not os.path.isfile(self.dbfname)
 
         self.dbconn = sqlite3.connect(self.dbfname)
@@ -256,10 +255,10 @@ class SlastiDB:
                     for m in self._get_marks(mark_id=id)]
 
     def async_update_similarity_cache(self):
-        def f(dirname, stopwords, ignore_hosts_in_search):
-            db = SlastiDB(dirname, stopwords=stopwords, ignore_hosts_in_search=ignore_hosts_in_search)
+        def f(dbfname, stopwords, ignore_hosts_in_search):
+            db = SlastiDB(dbfname, stopwords=stopwords, ignore_hosts_in_search=ignore_hosts_in_search)
             db._refresh_similarity_cache()
-        p = mp.Process(target=f, args=(self.dirname, self.stopwords, self.ignore_hosts_in_search))
+        p = mp.Process(target=f, args=(self.dbfname, self.stopwords, self.ignore_hosts_in_search))
         p.start()
 
     def _refresh_similarity_cache(self):

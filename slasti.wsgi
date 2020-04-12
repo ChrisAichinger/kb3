@@ -33,8 +33,8 @@ def load_config(userconf, name):
             raise AppError("Configured user is not a dictionary {...}")
         if 'name' not in u:
             raise AppError(f"User with no name")
-        if 'root' not in u:
-            raise AppError(f"User with no root: {u['name']}")
+        if 'database' not in u:
+            raise AppError(f"User with no database: {u['name']}")
 
     users = {u['name']: u for u in users}
     return users.get(name)
@@ -140,7 +140,7 @@ def do_user(environ, start_response, path):
     if user == None:
         raise App404Error("No such user: "+parsed[1])
 
-    base = slasti.tagbase.SlastiDB(user['root'],
+    base = slasti.tagbase.SlastiDB(user['database'],
                                    stopwords=user.get('stopwords', []),
                                    stopword_languages=user.get('stopword_languages', []),
                                    ignore_hosts_in_search=user.get('ignore_hosts_in_search', []))
