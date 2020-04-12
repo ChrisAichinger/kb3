@@ -18,16 +18,14 @@ from nltk.corpus import stopwords as nltk_stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 
-from slasti import AppError
-import slasti
-
 
 def split_tags(tagstr):
     return [t for t in tagstr.split(' ') if t]
 
 class DBMark:
-    def __init__(self, from_dict=None, title=None, url=None, tags=None, note=None):
+    def __init__(self, *, from_dict=None, id=None, title=None, url=None, tags=None, note=None):
         if from_dict is None:
+            self.id = id
             self.title = title
             self.url = url
             self.tags = tags
@@ -191,27 +189,57 @@ class SlastiDB:
                               (SELECT mark_tags.tag_id FROM mark_tags);""")
         self.dbconn.commit()
 
+    def get_successors(self, mark_id=None, count=1):
+        stmt = """SELECT * FROM (
+                      SELECT marks.*, group_concat(tag, ' ') AS tags FROM marks
+                      JOIN mark_tags USING (mark_id)
+                      JOIN tags USING (tag_id)
+                      WHERE mark_id > :mark_id
+                      GROUP BY mark_id
+                      ORDER BY mark_id ASC
+                      LIMIT :count
+                  ) ORDER BY mark_id DESC
+               """
+        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'count': count })
+        return [self._mark_from_dbrow(row) for row in rows]
+
+    def get_predecessors(self, mark_id=None, count=1):
+        stmt = """SELECT marks.*, group_concat(tag, ' ') AS tags FROM marks
+                  JOIN mark_tags USING (mark_id)
+                  JOIN tags USING (tag_id)
+                  WHERE mark_id < :mark_id
+                  GROUP BY mark_id
+                  ORDER BY mark_id DESC
+                  LIMIT :count"""
+        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'count': count })
+        return [self._mark_from_dbrow(row) for row in rows]
+
     def _mark_from_dbrow(self, row):
         d = dict(row)
         d["tags"] = d["tags"].split()
         return DBMark(from_dict=d)
 
-    def _get_marks(self, *, mark_id=None, tag=None, url=None):
-        where_mark = '''WHERE mark_id = :mark_id''' if mark_id else ''
-        where_tag =  '''WHERE mark_id in (SELECT mark_id FROM mark_tags
-                                          JOIN tags USING (tag_id)
-                                          WHERE tag = :tag)''' if tag else ''
-        where_url = '''WHERE url = :url''' if url is not None else ''
-        stmt = """SELECT marks.*, group_concat(tag, ' ') AS tags FROM marks
-                  JOIN mark_tags USING (mark_id)
-                  JOIN tags USING (tag_id)
-                  {where_mark} {where_tag} {where_url}
-                  GROUP BY mark_id
-                  ORDER BY time DESC;""".format(where_mark=where_mark,
-                                                where_tag=where_tag,
-                                                where_url=where_url)
+    def _get_marks(self, *, limit=2**62, offset=0, mark_id=None, tag=None, url=None):
+        where_clauses = ["1=1"]
+        if mark_id is not None:
+            where_clauses.append('mark_id = :mark_id')
+        if tag is not None:
+            where_clauses.append('''mark_id in (SELECT mark_id FROM mark_tags
+                                                JOIN tags USING (tag_id)
+                                                WHERE tag = :tag)''')
+        if url is not None:
+            where_clauses.append('url = :url')
+        stmt = f"""SELECT marks.*, group_concat(tag, ' ') AS tags
+                     FROM marks
+                     JOIN mark_tags USING (mark_id)
+                     JOIN tags USING (tag_id)
+                    WHERE {' AND '.join(where_clauses)}
+                 GROUP BY mark_id
+                 ORDER BY mark_id DESC
+                    LIMIT :limit
+                   OFFSET :offset;"""
 
-        rows = self.dbconn.execute(stmt, { 'mark_id': mark_id, 'tag': tag, 'url': url })
+        rows = self.dbconn.execute(stmt, dict(mark_id=mark_id, tag=tag, url=url, limit=limit, offset=offset))
         return (self._mark_from_dbrow(row) for row in rows)
 
     def lookup(self, mark_id):
@@ -224,8 +252,8 @@ class SlastiDB:
         for mark in self.get_marks():
             yield mark
 
-    def get_marks(self):
-        return self._get_marks()
+    def get_marks(self, **kwargs):
+        return self._get_marks(**kwargs)
 
     def get_tag_marks(self, tag):
         return self._get_marks(tag=tag)

@@ -1,16 +1,11 @@
 <hr />
-{% if href_page_prev %}
-    [<a href="{{href_page_prev|e}}">&laquo;</a>]
+{% if prev_page_link %}
+    [<a href="{{prev_page_link|e}}">&laquo;</a>]
 {% else %}
     [-]
 {% endif %}
-{% if href_page_this %}
-    [<a href="{{href_page_this|e}}">&#9733;</a>]
-{% else %}
-    [-]
-{% endif %}
-{% if href_page_next %}
-    [<a href="{{href_page_next|e}}">&raquo;</a>]
+{% if next_page_link %}
+    [<a href="{{next_page_link|e}}">&raquo;</a>]
 {% else %}
     [-]
 {% endif %}

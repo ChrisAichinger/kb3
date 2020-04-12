@@ -4,7 +4,7 @@ Similar:
 <li class="similarListElement">
     {{smark.time | format_date}}
     [<span class="mark_meta_links"
-       ><a href="{{s_userurl}}/mark.{{smark.key_str()}}" class="mark">&#9734;</a
+       ><a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=smark.id) }}" class="mark">{{WHITESTAR}}</a
        ><sup class="mark_mini_actions"
          ><a href="javascript:void(0)" class="copyButton">c</a
        ></sup

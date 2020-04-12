@@ -1,11 +1,11 @@
 {%include "html_header.html" %}
 {%include "html_body_top.html" %}
 {% for mark in marks %}
-    <div class="bookmark" data-mark-id="{{mark.key_str()}}">{{mark.time | format_date}}
+    <div class="bookmark" data-mark-id="{{mark.id}}">{{mark.time | format_date}}
       [<span class="mark_meta_links"
-         ><a href="{{s_userurl}}/mark.{{mark.key_str()}}" class="mark">&#9734;</a
+         ><a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=mark.id) }}" class="mark">{{WHITESTAR}}</a
          ><span class="mark_mini_actions">
-           <abbr title="[E]dit"><a href="{{s_userurl}}/edit?mark={{mark.key_str()}}">{%include "pencil.svg" %}</a></abbr>
+           <abbr title="[E]dit"><a href="{{ url_for_current_user('bookmarks.new_edit_view', mark_id=mark.id) }}">{%include "pencil.svg" %}</a></abbr>
             <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton">{%include "copy.svg"%}</a></abbr>
             <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton">{%include "similar.svg"%}</a></abbr
          ></span
@@ -13,7 +13,7 @@
       <a href="{{mark.url|e}}" class="mark_link">{{mark.title | e}}</a><br />
       {% for tag in mark.tags %}
           {% if tag %}
-          <a href="{{s_userurl}}/{{tag|e}}/" class="mark_tag">{{tag|e}}</a>
+          <a href="{{ url_for_current_user('bookmarks.list_view', tag_name=tag) }}" class="mark_tag">{{tag|e}}</a>
           {% else %}
               -
           {% endif %}
@@ -28,7 +28,7 @@
     </div>
     {%if show_edit %}
         <p>
-        [<a href="{{s_userurl}}/edit?mark={{mark.key_str()}}" id="global-edit-link">edit</a>]
+        [<a href="{{ url_for_current_user('bookmarks.new_edit_view', mark_id=mark.id) }}" id="global-edit-link">edit</a>]
         </p>
     {%endif %}
 {% endfor %}

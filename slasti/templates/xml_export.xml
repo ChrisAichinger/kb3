@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<posts user="{{s_username}}" tag="">
+<posts user="{{g.user.name}}" tag="">
 {% for mark in marks %}
     <post href="{{mark.url|e}}"
           description="{{(mark.title or mark.url)|e}}"

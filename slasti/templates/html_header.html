@@ -4,24 +4,24 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link href="{{s_staticurl}}/style.css" rel="stylesheet" type="text/css">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" type="text/css">
     <style>
-        .note a[href^="{{s_full_userurl}}"]::before, .note a[href^="{{s_userurl}}"]::before {
+        .note a[href^="{{request.script_root}}"]::before, .note a[href^="{{request.url_root}}"]::before {
             content: "\2606\a0";
         }
     </style>
     <script type="text/javascript">
-        window.s_userurl = "{{s_userurl}}";
+        window.s_userurl = "{{url_for_current_user('bookmarks.list_view')}}";
     </script>
 
-    <script src="{{s_staticurl}}/html4.js" type="text/javascript"></script>
-    <script src="{{s_staticurl}}/uri.js" type="text/javascript"></script>
-    <script src="{{s_staticurl}}/html-sanitizer.js" type="text/javascript">
+    <script src="{{ url_for('static', filename='html4.js') }}" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='uri.js') }}" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='html-sanitizer.js') }}" type="text/javascript">
     </script>
 
-    <script src="{{s_staticurl}}/stmd.js" type="text/javascript"></script>
-    <script src="{{s_staticurl}}/jquery.js" type="text/javascript"></script>
-    <script src="{{s_staticurl}}/slasti.js" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='stmd.js') }}" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='jquery.js') }}" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='slasti.js') }}" type="text/javascript"></script>
 
     <script type="text/x-mathjax-config">
       MathJax.Hub.Config({
@@ -43,7 +43,7 @@
         messageStyle: "none"
       });
     </script>
-    <script src="{{s_staticurl}}/mathjax/MathJax.js?config=TeX-AMS_HTML-full" async></script>
+    <script src="{{ url_for('static', filename='mathjax/MathJax.js') }}?config=TeX-AMS_HTML-full" async></script>
 </head>
 <body>
     <div id="map_search" style="display:none">

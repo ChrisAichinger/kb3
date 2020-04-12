@@ -1,26 +1,23 @@
-{%set title = mark.title or "" %}
-{%set url = mark.url or "" %}
-{%set tags = ' '.join(mark.tags or []) %}
-{%set note = mark.note or "" %}
+{%set title = WHITESTAR %}
 
 {%include "html_header.html"%}
 {%include "html_body_top.html"%}
-<form action="{{s_action_edit}}" method="POST" name="editform">
+<form action="{{url_for_current_user('.new_edit_post_view', mark_id=mark.id)}}" method="POST" name="editform">
 <div class="editform-container">
   <div class="editform-elem margin-above">Title</div>
   <div class="editform-elem flex-container">
     <input name="title" type="text" maxlength=1024 id="edt_title"
-             value="{{title|e}}" />
+             value="{{mark.title|e}}" />
   </div>
   <div class="editform-elem margin-above">URL</div>
-  <input name="href" type="text" maxlength=1024 value="{{url|e}}"/>
+  <input name="href" type="text" maxlength=1024 value="{{mark.url|e}}"/>
 
   <div class="editform-elem margin-above">Tags</div>
-  <input name="tags" type="text" maxlength=1024 value="{{tags|e}}"/>
+  <input name="tags" type="text" maxlength=1024 value="{{' '.join(mark.tags or [])|e}}"/>
 
   <div class="editform-elem margin-above">Extra</div>
   <div class="flex-container">
-    <textarea name="extra" type="text" id="extra-text" rows=12>{{note|e}}</textarea>
+    <textarea name="extra" type="text" id="extra-text" rows=12>{{(mark.note or '')|e}}</textarea>
   </div>
 
    <div id="cheatsheet_wrap" class="editform-elem-colspan alignRight posRelative">
@@ -40,10 +37,9 @@
 </div>
 </form>
 
-{% if s_action_delete %}
+{% if mark.id is not none %}
 <p>or</p>
-<form action="{{s_action_delete}}" method="POST">
-  <input name=mark type=hidden value="{{mark.key_str()}}" />
+<form action="{{ url_for_current_user('bookmarks.delete_view', mark_id=mark.id) }}" method="POST">
   <input name=action type=submit value="Delete" />
   (There is no undo.)
 </form>
@@ -56,7 +52,7 @@
     {% for smark in same_url_marks %}
     <li>
         {{smark.time | format_date}}
-        [<a href="mark.{{smark.key_str()}}">&#9734;</a>]
+        [<a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=smark.id) }}">{{WHITESTAR}}</a>]
         <a href="{{smark.url|e}}"
             >{{(smark.title or smark.url)|e}}</a>
     </li>

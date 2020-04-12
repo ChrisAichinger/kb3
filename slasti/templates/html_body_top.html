@@ -2,34 +2,24 @@
 <tr valign="top">
     <td align="left">
         <h2 class="username">
-            <a href="{{s_userurl}}" id="userlink">{{s_username}}</a> /
-            {% if href_current_tag %}
-                <a href="{{href_current_tag|e}}">
-            {% endif %}
-            {% if current_tag %}
-                {{current_tag|e}}
-            {% else %}
-                &#9733;
-            {% endif %}
-            {% if href_current_tag %}
-                </a>
-            {% endif %}
+            <a href="{{ url_for_current_user('bookmarks.list_view') }}" id="userlink">{{g.user.name}}</a> /
+            {{(title or BLACKSTAR)|e}}
         </h2>
     </td>
     <td align="right">
         {% if show_login %}
         [<a href="{{href_login|e}}">login</a>]
         {% endif %}
-        [<b><a href="{{s_userurl}}/tags">tags</a></b>]
-        [<a href="{{s_userurl}}/new">new</a>]
+        [<b><a href="{{ url_for_current_user('bookmarks.taglist_view') }}">tags</a></b>]
+        [<a href="{{ url_for_current_user('bookmarks.new_edit_view') }}">new</a>]
         {% if show_export %}
-            [<a href="{{s_userurl}}/export.xml">e</a>]
+            [<a href="{{ url_for_current_user('bookmarks.export_view') }}">e</a>]
         {% else %}
             [e]
         {% endif %}
         [<a id='loc_parse' href='javascript:void(0)'>map</a>]
         <abbr title="tag:ai & !machine-learning | (a & b)">Search</abbr>:
-        <form method="GET" action="{{s_userurl}}/search">
+        <form method="GET" action="{{ url_for_current_user('bookmarks.search_view') }}">
             <input type="text" name="q" value="{{(val_search or '')|e}}" />
         <input type="submit" value="Go" />
         </form>

@@ -2,7 +2,7 @@
 {%include "html_body_top.html"%}
 <p>
 {% for tag in tags %}
-<a href="{{s_userurl}}/{{tag.name|e}}/">{{tag|e}}</a> {{tag.num_marks}}<br />
+<a href="{{ url_for_current_user('bookmarks.list_view', tag_name=tag.name) }}">{{tag.name|e}}</a> {{tag.num_marks}}<br />
 {% endfor %}
 </p>
 <hr />
