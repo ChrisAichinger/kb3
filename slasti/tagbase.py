@@ -18,38 +18,48 @@ from nltk.corpus import stopwords as nltk_stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 
+Sentinel = object()
 
-def split_tags(tagstr):
-    return [t for t in tagstr.split(' ') if t]
 
-class DBMark:
-    def __init__(self, *, from_dict=None, id=None, title=None, url=None, tags=None, note=None):
-        if from_dict is None:
+class Bookmark:
+    def __init__(self, *, id=None, title=None, url=None, tags=None, note=None, time=None):
+        self.update(id=id, title=title, url=url, tags=tags, note=note, time=time)
+
+    def update(self, *, id=Sentinel, title=Sentinel, url=Sentinel, tags=Sentinel, note=Sentinel, time=Sentinel):
+        if id is not Sentinel:
             self.id = id
+        if title is not Sentinel:
             self.title = title
+        if url is not Sentinel:
             self.url = url
+        if tags is not Sentinel:
             self.tags = tags
+        if note is not Sentinel:
             self.note = note
-            return
+        if time is not Sentinel:
+            self.time = time
 
-        self.id = from_dict["mark_id"]
-        self.title = from_dict["title"]
-        self.url = from_dict["url"]
-        self.note = from_dict["note"]
-        self.tags = from_dict["tags"]
-        self.time = from_dict["time"]
+    @property
+    def tags(self):
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        if isinstance(tags, str):
+            tags = [t for t in tags.split(' ') if t]
+        self._tags = tags
 
     def __eq__(self, rhs):
-        try:
+        if self.id is not None:
             return self.id == rhs.id
-        except Exception:
-            return False
+        return (self.title == rhs.title and
+                self.url == rhs.url and
+                self.tags == rhs.tags and
+                self.note == rhs.note and
+                self.time == rhs.time)
 
     def __neq__(self, rhs):
         return not self == rhs
-
-    def key_str(self):
-        return str(self.id)
 
     def contains(self, string):
         """Search text string in mark - return True if found, else False
@@ -65,7 +75,7 @@ class DBMark:
                 any(tag for tag in self.tags if string in tag.lower())
                )
 
-class DBTag:
+class Tag:
     def __init__(self, name, count):
         self.name = name
         self.num_marks = count
@@ -124,26 +134,17 @@ class SlastiDB:
             );
         """)
 
-    def add1(self, title, url, note, tags):
-        result = self.insert(DBMark(from_dict={"mark_id": None,
-                                               "title": title,
-                                               "url": url,
-                                               "note": note,
-                                               "tags": tags,
-                                               "time": int(time.time())
-                        }))
+    def add(self, title, url, note, tags):
+        mark_id = self._insert(Bookmark(title=title, url=url, note=note, tags=tags, time=int(time.time())))
         self.async_update_similarity_cache()
-        return result
+        return mark_id
 
-    def edit1(self, mark, title, url, note, new_tags):
-        mark.title = title
-        mark.url = url
-        mark.note = note
-        mark.tags = new_tags
-        self.update(mark)
+    def edit(self, mark, *, title=Sentinel, url=Sentinel, note=Sentinel, tags=Sentinel):
+        mark.update(title=title, url=url, note=note, tags=tags)
+        self._update(mark)
         self.async_update_similarity_cache()
 
-    def insert(self, mark):
+    def _insert(self, mark):
         cur = self.dbconn.cursor()
         cur.execute("""INSERT INTO marks(time, title, url, note)
                               VALUES (?, ?, ?, ?);""",
@@ -154,14 +155,13 @@ class SlastiDB:
             if not tag:
                 continue
             cur.execute("INSERT OR IGNORE INTO tags(tag) VALUES (?);", (tag,))
-            cur.execute("SELECT tag_id FROM tags WHERE tag = ?;", (tag,))
-            t_id = cur.fetchone()[0]
+            t_id = cur.execute("SELECT tag_id FROM tags WHERE tag = ?;", (tag,)).fetchone()[0]
             cur.execute("INSERT INTO mark_tags VALUES (?, ?);", (m_id, t_id))
         self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
         return m_id
 
-    def update(self, mark):
+    def _update(self, mark):
         cur = self.dbconn.cursor()
         cur.execute("""UPDATE marks SET time = ?, title = ?, url = ?, note = ?
                               WHERE mark_id = ?;""",
@@ -215,9 +215,8 @@ class SlastiDB:
         return [self._mark_from_dbrow(row) for row in rows]
 
     def _mark_from_dbrow(self, row):
-        d = dict(row)
-        d["tags"] = d["tags"].split()
-        return DBMark(from_dict=d)
+        return Bookmark(id=row["mark_id"], title=row["title"], url=row["url"],
+                        note=row["note"], tags=row["tags"].split(), time=row["time"])
 
     def get_marks(self, *, limit=-1, offset=0, mark_id=None, not_mark_id=None, tag=None, url=None):
         where_clauses = ["1=1"]
@@ -264,7 +263,7 @@ class SlastiDB:
                           GROUP BY tag_id
                           ORDER BY tag ASC;""")
         for row in rows:
-            yield DBTag(row[0], row[1])
+            yield Tag(row[0], row[1])
 
     def find_similar(self, mark, *, num=10):
         cached_search = self.cache.get('similarity')
@@ -388,7 +387,8 @@ class SimilaritySearch:
 
     def _mark_to_dict(self, mark):
         m = mark.__dict__.copy()
-        m['tags'] = ' '.join(m['tags'] or '')
+        m['tags'] = ' '.join(m['_tags'] or '')
+        del m['_tags']
         h = re.match(r'[^/]*///*([^/]*)', m['url'] or '')
         m['host'] = h.group(1) if h else ''
         for ih in self.ignore_hosts:

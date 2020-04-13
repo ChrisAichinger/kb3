@@ -65,15 +65,15 @@ $(document).ready(function() {
         }
     });
     function parseAndRender() {
-        $("#extra-rendered-container").show();
-        var input = $("#extra-text").val();
+        $("#note-rendered-container").show();
+        var input = $("#note-text").val();
         var mkd = mkd_parser.parse(input);
         var raw = mkd_renderer.render(mkd);
-        $("#extra-rendered").html(html_sanitize(raw, urlX));
-        MathJax.Hub.Queue(["Typeset",MathJax.Hub,"extra-rendered"]);
+        $("#note-rendered").html(html_sanitize(raw, urlX));
+        MathJax.Hub.Queue(["Typeset",MathJax.Hub,"note-rendered"]);
     }
-    $("#extra-text").bind('input propertychange',
-                          debounce(parseAndRender, 50));
+    $("#note-text").bind('input propertychange',
+                         debounce(parseAndRender, 50));
 
     var canHideMetaLinks = {};
     $(".mark_meta_links").hover(
@@ -309,7 +309,7 @@ $(document).ready(function() {
                 $("input[type='submit'][value='Save']").click();
             }
         });
-        $('#extra-text').keydown(function (e) {
+        $('#note-text').keydown(function (e) {
             if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
                 $("input[type='submit'][value='Save']").click();
             }

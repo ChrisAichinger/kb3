@@ -142,8 +142,9 @@ def search_view(user):
 def new_edit_view(user, mark_id):
     if mark_id is None:
         title = request.args.get('title', '')
-        url = request.args.get('href', '')
-        mark = tagbase.DBMark(title=title, url=url)
+        url = request.args.get('url', '') or request.args.get('href', '')
+        note = request.args.get('note', '')
+        mark = tagbase.Bookmark(title=title, url=url)
     else:
         mark = g.db.lookup(mark_id)
         if not mark:
@@ -161,21 +162,21 @@ def new_edit_view(user, mark_id):
 @bp.route('/<user>/mark.<int:mark_id>/edit', methods=['POST'])
 def new_edit_post_view(user, mark_id):
     title = request.form.get('title')
-    href = request.form.get('href')
+    url = request.form.get('url')
     tags = request.form.get('tags')
-    extra = request.form.get('extra')
-    if not all([title, href, tags]):
+    note = request.form.get('note')
+    if not all([title, url, tags]):
         abort(400, "Title, URL, and tags are necessary.")
 
     if mark_id is None:
-        mark_id = g.db.add1(title, href, extra, tagbase.split_tags(tags))
+        mark_id = g.db.add(title, url, note, tags)
         if mark_id is None:
             abort(500, "Could not add bookmark")
     else:
         mark = g.db.lookup(mark_id)
         if not mark:
             raise abort(404, "Bookmark not found")
-        g.db.edit1(mark, title, href, extra, tagbase.split_tags(tags))
+        g.db.edit(mark, title=title, url=url, note=note, tags=tags)
 
     return redirect(url_for_current_user('.mark_view', mark_id=mark_id))
 
