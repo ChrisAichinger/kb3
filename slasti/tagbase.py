@@ -7,13 +7,18 @@
 
 import sys
 import os
+from dataclasses import dataclass
 import functools
 import multiprocessing as mp
 import pickle
 import re
 import sqlite3
+import subprocess
 import time
+from urllib.parse import urlparse
 
+
+from bs4 import BeautifulSoup
 from nltk.corpus import stopwords as nltk_stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
@@ -21,11 +26,30 @@ from sklearn.metrics.pairwise import linear_kernel
 Sentinel = object()
 
 
-class Bookmark:
-    def __init__(self, *, id=None, title=None, url=None, tags=None, note=None, time=None):
-        self.update(id=id, title=title, url=url, tags=tags, note=note, time=time)
+@functools.lru_cache(maxsize=None)
+def stopwords_from_language(lang):
+    return nltk_stopwords.words(lang)
 
-    def update(self, *, id=Sentinel, title=Sentinel, url=Sentinel, tags=Sentinel, note=Sentinel, time=Sentinel):
+
+def extract_links(markdown):
+    p = subprocess.run(
+        ['pandoc', '-f', 'commonmark', '-t', 'html'],
+        input=markdown, capture_output=True,
+        encoding='utf-8', check=True)
+    soup = BeautifulSoup(p.stdout, features="lxml")
+    for tag in soup.find_all('a'):
+        href = tag.get('href')
+        if href is not None:
+            yield ''.join(str(c) for c in tag.contents), href
+
+
+class Bookmark:
+    def __init__(self, *, id=None, title=None, url=None, tags=None, note=None, time=None, incoming_links=None):
+        incoming_links = incoming_links or []
+        self.update(id=id, title=title, url=url, tags=tags, note=note, time=time, incoming_links=incoming_links)
+
+    def update(self, *, id=Sentinel, title=Sentinel, url=Sentinel, tags=Sentinel, note=Sentinel,
+               time=Sentinel, incoming_links=Sentinel):
         if id is not Sentinel:
             self.id = id
         if title is not Sentinel:
@@ -38,6 +62,8 @@ class Bookmark:
             self.note = note
         if time is not Sentinel:
             self.time = time
+        if incoming_links is not Sentinel:
+            self.incoming_links = incoming_links
 
     @property
     def tags(self):
@@ -61,6 +87,9 @@ class Bookmark:
     def __neq__(self, rhs):
         return not self == rhs
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} id={self.id} title={self.title[:30]}>"
+
     def contains(self, string):
         """Search text string in mark - return True if found, else False
 
@@ -75,22 +104,28 @@ class Bookmark:
                 any(tag for tag in self.tags if string in tag.lower())
                )
 
+
+@dataclass
+class SlimBookmark:
+    '''Rudimentary bookmark information: id, title, url'''
+    id: int
+    title: str
+    url: str
+    time: int
+
+
+@dataclass
 class Tag:
-    def __init__(self, name, count):
-        self.name = name
-        self.num_marks = count
+    '''Meta-information about a tag: tab name and bookmark count'''
+    name: str
+    num_marks: int
 
     def __str__(self):
         return self.name
 
 
-@functools.lru_cache(maxsize=None)
-def stopwords_from_language(lang):
-    return nltk_stopwords.words(lang)
-
-
 class SlastiDB:
-    def __init__(self, dbfname, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
+    def __init__(self, dbfname, abs_url_prefix, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
         self.dbfname = dbfname
         must_create_schema = not os.path.isfile(self.dbfname)
 
@@ -102,6 +137,11 @@ class SlastiDB:
         if must_create_schema:
             self._create_schema()
             self.cache.create_schema()
+
+        self.abs_url_prefix = abs_url_prefix
+        rel_url_prefix = urlparse(abs_url_prefix).path
+        escaped_prefixes = (re.escape(p) for p in [abs_url_prefix, rel_url_prefix])
+        self.crosslink_regex = re.compile(r'^({})/mark\.(\d+)$'.format('|'.join(escaped_prefixes)))
 
         self.stopwords = stopwords
         if stopword_languages:
@@ -128,8 +168,7 @@ class SlastiDB:
                 mark_id INTEGER NOT NULL,
                 tag_id INTEGER NOT NULL,
                 PRIMARY KEY (mark_id, tag_id),
-                FOREIGN KEY (mark_id) REFERENCES marks(mark_id)
-                    ON DELETE CASCADE,
+                FOREIGN KEY (mark_id) REFERENCES marks(mark_id) ON DELETE CASCADE,
                 FOREIGN KEY (tag_id) REFERENCES tags(tag_id) ON DELETE CASCADE
             );
         """)
@@ -149,7 +188,7 @@ class SlastiDB:
         cur.execute("""INSERT INTO marks(time, title, url, note)
                               VALUES (?, ?, ?, ?);""",
                     (mark.time, mark.title, mark.url, mark.note))
-        m_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
+        mark.id = m_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
         for tag in mark.tags:
             tag = tag.strip()
             if not tag:
@@ -157,6 +196,7 @@ class SlastiDB:
             cur.execute("INSERT OR IGNORE INTO tags(tag) VALUES (?);", (tag,))
             t_id = cur.execute("SELECT tag_id FROM tags WHERE tag = ?;", (tag,)).fetchone()[0]
             cur.execute("INSERT INTO mark_tags VALUES (?, ?);", (m_id, t_id))
+        self._save_crosslinks(mark, cur)
         self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
         return m_id
@@ -178,13 +218,23 @@ class SlastiDB:
             cur.execute("INSERT INTO mark_tags VALUES (?,?);", (mark.id, t_id))
         cur.execute("""DELETE FROM tags WHERE tag_id NOT IN
                               (SELECT mark_tags.tag_id FROM mark_tags);""")
+        self._save_crosslinks(mark, cur)
         self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
         return mark.id
 
+    def _save_crosslinks(self, mark, cur):
+        cur.execute("DELETE FROM mark_crosslinks WHERE source_id = ?", (mark.id,))
+        for link_title, url in extract_links(mark.note):
+            m = self.crosslink_regex.match(url)
+            if m:
+                cur.execute("INSERT OR REPLACE INTO mark_crosslinks VALUES (?, ?, ?);",
+                            (mark.id, m.group(2), link_title))
+
     def delete(self, mark):
         cur = self.dbconn.cursor()
         cur.execute("""DELETE FROM marks WHERE mark_id = ?;""", (mark.id,))
+        cur.execute("""DELETE FROM mark_crosslinks WHERE source_id = ?""", (mark.id,))
         cur.execute("""DELETE FROM tags WHERE tag_id NOT IN
                               (SELECT mark_tags.tag_id FROM mark_tags);""")
         self.dbconn.commit()
@@ -248,7 +298,24 @@ class SlastiDB:
             offset=offset,
         )
         rows = self.dbconn.execute(stmt, args)
-        return [self._mark_from_dbrow(row) for row in rows]
+        bookmarks = [self._mark_from_dbrow(row) for row in rows]
+        self._add_incoming_links(bookmarks)
+        return bookmarks
+
+    def _add_incoming_links(self, bookmarks):
+        id_bookmark_map = {m.id: m for m in bookmarks}
+        for m in bookmarks:
+            m.incoming_links = []
+
+        stmt = f"""SELECT mark_crosslinks.destination_id, mark_id, title, url, time
+                     FROM mark_crosslinks
+                     JOIN marks ON mark_crosslinks.source_id = marks.mark_id
+                    WHERE mark_crosslinks.destination_id in ({','.join(['?']*len(id_bookmark_map))})
+                 ORDER BY marks.mark_id DESC;"""
+        rows = self.dbconn.execute(stmt, list(id_bookmark_map))
+        for dst_id, src_id, src_title, src_url, src_time in rows:
+            link = SlimBookmark(src_id, src_title, src_url, src_time)
+            id_bookmark_map[dst_id].incoming_links.append(link)
 
     def lookup(self, mark_id):
         result = self.get_marks(mark_id=int(mark_id))
@@ -278,10 +345,11 @@ class SlastiDB:
                     for m in self.get_marks(mark_id=id)]
 
     def async_update_similarity_cache(self):
-        def f(dbfname, stopwords, ignore_hosts_in_search):
-            db = SlastiDB(dbfname, stopwords=stopwords, ignore_hosts_in_search=ignore_hosts_in_search)
+        def f(self):
+            db = SlastiDB(self.dbfname, self.abs_url_prefix, stopwords=self.stopwords,
+                          ignore_hosts_in_search=self.ignore_hosts_in_search)
             db._refresh_similarity_cache()
-        p = mp.Process(target=f, args=(self.dbfname, self.stopwords, self.ignore_hosts_in_search))
+        p = mp.Process(target=f, args=(self,))
         p.start()
 
     def _refresh_similarity_cache(self):

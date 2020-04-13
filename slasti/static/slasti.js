@@ -75,24 +75,37 @@ $(document).ready(function() {
     $("#note-text").bind('input propertychange',
                          debounce(parseAndRender, 50));
 
-    var canHideMetaLinks = {};
-    $(".mark_meta_links").hover(
-        function () {
-            var markUrl = $(this).find(".mark").attr("href");
-            canHideMetaLinks[markUrl] = false;
-            $(this).addClass("enable_edit");
-        },
-        function () {
-            var thisJQ = $(this);
-            var markUrl = $(this).find(".mark").attr("href");
-            canHideMetaLinks[markUrl] = true;
-            setTimeout(function(){
-                if (canHideMetaLinks[markUrl]) {
-                    thisJQ.removeClass("enable_edit");
-                }
-            }, 500);
-        }
-    );
+
+    function registerTitleLineEventHandlers() {
+        var canHideMetaLinks = {};
+        $(".mark_meta_links").unbind('mouseenter mouseleave')
+        $(".mark_meta_links").hover(
+            function () {
+                var markUrl = $(this).find(".mark").attr("href");
+                canHideMetaLinks[markUrl] = false;
+                $(this).addClass("enable_edit");
+            },
+            function () {
+                var thisJQ = $(this);
+                var markUrl = $(this).find(".mark").attr("href");
+                canHideMetaLinks[markUrl] = true;
+                setTimeout(function(){
+                    if (canHideMetaLinks[markUrl]) {
+                        thisJQ.removeClass("enable_edit");
+                    }
+                }, 500);
+            }
+        );
+        $(".copyButton").unbind('click');
+        $(".copyButton").click(function(evt) {
+            copyMarkToClipboard($(evt.target).closest('.mark_title_line'));
+        });
+        $(".bookmark .similarButton").unbind('click');
+        $(".bookmark .similarButton").click(function(evt) {
+            toggleSimilar($(evt.target).closest('.bookmark'));
+        });
+    }
+    registerTitleLineEventHandlers();
 
     function process_loc_data(data) {
         // Transform data into a jQuery object
@@ -316,10 +329,10 @@ $(document).ready(function() {
         });
     }
 
-    function copyMarkToClipboard(bookmarkEl) {
-        var title_el = bookmarkEl.find(".mark_link");
+    function copyMarkToClipboard(titleLineEl) {
+        var title_el = titleLineEl.find(".mark_link").first();
         var title = title_el.text();
-        var bm_url = bookmarkEl.find(".mark").attr("href");
+        var bm_url = titleLineEl.find(".mark").attr("href");
         var link = "[" + title + "](" + bm_url + ")";
         copyToClipboard(link);
         title_el.fadeOut(100).fadeIn(100).fadeOut(100).fadeIn(100);
@@ -330,7 +343,10 @@ $(document).ready(function() {
         if (similarEl.html() == "") {
             similarEl.html("Loading similar bookmarks...")
             var url = bm.attr("data-mark-similar-link");
-            $.get(url, data => similarEl.html(data));
+            $.get(url, data => {
+                similarEl.html(data);
+                registerTitleLineEventHandlers();
+            });
         } else {
             similarEl.html("");
         }
@@ -355,7 +371,7 @@ $(document).ready(function() {
             }
             if (key == 'c') {
                 evt.preventDefault();
-                copyMarkToClipboard($(".bookmark"));
+                copyMarkToClipboard($(".bookmark .mark_title_line").first());
             }
             if (key == 's') {
                 evt.preventDefault();
@@ -363,13 +379,4 @@ $(document).ready(function() {
             }
         });
     }
-    $(".bookmark .copyButton").click(function(evt) {
-        copyMarkToClipboard($(evt.target).closest('.bookmark'));
-    });
-    $(".similarListElement .copyButton").click(function(evt) {
-        copyMarkToClipboard($(evt.target).closest('.similarListElement'));
-    });
-    $(".bookmark .similarButton").click(function(evt) {
-        toggleSimilar($(evt.target).closest('.bookmark'));
-    });
 });

@@ -1,32 +1,28 @@
 {%include "html_header.html" %}
 {%include "html_body_top.html" %}
+{%import 'macros.html' as macros %}
 {% for mark in marks %}
     <div
       class="bookmark"
       data-mark-id="{{mark.id}}"
       data-mark-similar-link="{{ url_for_current_user('bookmarks.similar_view', mark_id=mark.id) }}"
-    >{{mark.time | format_date}}
-      [<span class="mark_meta_links"
-         ><a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=mark.id) }}" class="mark">{{WHITESTAR}}</a
-         ><span class="mark_mini_actions">
-           <abbr title="[E]dit"><a href="{{ url_for_current_user('bookmarks.new_edit_view', mark_id=mark.id) }}">{%include "pencil.svg" %}</a></abbr>
-            <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton">{%include "copy.svg"%}</a></abbr>
-            <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton">{%include "similar.svg"%}</a></abbr
-         ></span
-       ></span>]
-      <a href="{{mark.url|e}}" class="mark_link">{{mark.title | e}}</a><br />
+    >
+      {{- macros.bookmark_title_line(mark, show_similar=True) -}}<br />
       {% for tag in mark.tags %}
-          {% if tag %}
           <a href="{{ url_for_current_user('bookmarks.list_view', tag_name=tag) }}" class="mark_tag">{{tag|e}}</a>
-          {% else %}
-              -
-          {% endif %}
       {% endfor %}
-      {% if not mark.tags %}
-      -
-      {% endif %}
       {% if mark.note %}
           <div class="note">{{mark.note|e}}</div>
+      {% endif %}
+      {% if mark.incoming_links %}
+          <div class="incoming_links">
+              Incoming Links:
+              <ul>
+                {% for il in mark.incoming_links %}
+                  <li class="incomingLinkListElement">{{macros.bookmark_title_line(il, show_similar=False)}}</li>
+                {% endfor %}
+              </ul>
+          </div>
       {% endif %}
       <div class="similar"></div>
     </div>

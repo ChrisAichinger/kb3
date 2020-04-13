@@ -1,16 +1,7 @@
+{%import 'macros.html' as macros %}
 Similar:
 <ul class="similarList">
 {% for smark in similar_marks %}
-<li class="similarListElement">
-    {{smark.time | format_date}}
-    [<span class="mark_meta_links"
-       ><a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=smark.id) }}" class="mark">{{WHITESTAR}}</a
-       ><sup class="mark_mini_actions"
-         ><a href="javascript:void(0)" class="copyButton">c</a
-       ></sup
-     ></span>]
-    <a href="{{smark.url|e}}" class="mark_link"
-        >{{(smark.title or smark.url) | e}}</a>
-</li>
+<li class="similarListElement">{{macros.bookmark_title_line(smark, show_similar=False)}}</li>
 {% endfor %}
 </ul>

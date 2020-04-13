@@ -1,0 +1,18 @@
+{% macro bookmark_title_line(mark, show_similar) -%}
+<span class="mark_title_line">{#- -#}
+  {{mark.time | format_date}}
+  [<span class="mark_meta_links">{#- -#}
+    <a href="{{ url_for_current_user('bookmarks.mark_view', mark_id=mark.id) }}" class="mark">{{WHITESTAR}}</a>{#- -#}
+    <span class="mark_mini_actions">
+      <abbr title="[E]dit"><a href="{{ url_for_current_user('bookmarks.new_edit_view', mark_id=mark.id) }}">
+        {%- include "pencil.svg" -%}
+      </a></abbr>
+      <abbr title="[C]opy"><a href="javascript:void(0)" class="copyButton">{%include "copy.svg"%}</a></abbr>
+      {% if show_similar -%}
+        <abbr title="Show [S]imilar"><a href="javascript:void(0)" class="similarButton">{%include "similar.svg"%}</a></abbr>{#- -#}
+      {%- endif -%}
+    </span>{#- -#}
+  </span>]
+  <a href="{{mark.url|e}}" class="mark_link">{{mark.title | e}}</a>
+</span>
+{%- endmacro %}

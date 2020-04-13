@@ -42,7 +42,9 @@ def initialize_context():
         abort(404, f"No such user")
 
     g.user = types.SimpleNamespace(**user)
+    abs_url_prefix = current_app.config['SLASTI_ABS_URL'].rstrip('/') + '/' + user['name']
     g.db = tagbase.SlastiDB(os.path.join(current_app.config['BASE_DIR'], user['database']),
+                            abs_url_prefix,
                             stopwords=user.get('stopwords', []),
                             stopword_languages=user.get('stopword_languages', []),
                             ignore_hosts_in_search=user.get('ignore_hosts_in_search', []))

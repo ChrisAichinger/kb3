@@ -31,7 +31,7 @@ ul {
     max-height: 30em;
 }
 
-.similar:not(:empty) {
+.incoming_links, .similar:not(:empty) {
     padding-top: 1.2em;
 }
 
