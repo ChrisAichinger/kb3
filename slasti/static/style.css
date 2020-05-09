@@ -218,6 +218,10 @@ div.olControlAttribution {
     margin-top: 0.5em;
 }
 
+.editform-container input {
+    max-width: 766px;
+}
+
 .flex-container {
     display: flex;
 }

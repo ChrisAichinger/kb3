@@ -74,6 +74,15 @@ $(document).ready(function() {
     }
     $("#note-text").bind('input propertychange',
                          debounce(parseAndRender, 50));
+    var expanded_notes = false;
+    $("#note-text").focus(() => {
+        if (expanded_notes) return;
+        expanded_notes = true;
+        $(".editform-container").animate(
+            {"max-width": $(window).width() + "px"},
+            500, 'swing',
+            function() { $(this).css({"max-width": "100%"}); })
+    });
 
 
     function registerTitleLineEventHandlers() {
