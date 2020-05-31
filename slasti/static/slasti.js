@@ -378,31 +378,35 @@ $(document).ready(function() {
         }
     }
 
-    if ($("#global-edit-link").length > 0) {
-        $(window).bind('keydown', function(evt) {
-            if (document.activeElement && document.activeElement.tagName == 'INPUT' && document.activeElement.type == 'text') {
-                return;  // Don't handle special keypresses if we're in an edit box, let it bubble through.
-            }
-            if (document.activeElement && document.activeElement.tagName == 'TEXTAREA') {
-                return;  // Don't handle special keypresses if we're in the note edit area either.
-            }
-            if (evt.shiftKey || evt.ctrlKey || evt.altKey || evt.isComposing) {
-                return;  // Don't catch any special keyboard combos.
-            }
+    $(window).bind('keydown', function(evt) {
+        if (document.activeElement && document.activeElement.tagName == 'INPUT' && document.activeElement.type == 'text') {
+            return;  // Don't handle special keypresses if we're in an edit box, let it bubble through.
+        }
+        if (document.activeElement && document.activeElement.tagName == 'TEXTAREA') {
+            return;  // Don't handle special keypresses if we're in the note edit area either.
+        }
+        if (evt.ctrlKey || evt.altKey || evt.isComposing) {
+            return;  // Don't catch any special keyboard combos.
+        }
 
-            var key = String.fromCharCode(evt.which).toLowerCase();
-            if (key == 'e') {
-                evt.preventDefault();
-                location.href = $("#global-edit-link").attr('href');
-            }
-            if (key == 'c') {
-                evt.preventDefault();
-                copyMarkToClipboard($(".bookmark .mark_title_line").first());
-            }
-            if (key == 's') {
-                evt.preventDefault();
-                toggleSimilar($(".bookmark"));
-            }
-        });
-    }
+        const key = String.fromCharCode(evt.which).toLowerCase();
+        const isSingleBookmark = $("#global-edit-link").length || $(".bookmark").length == 1;
+        const bmSelector = isSingleBookmark ? ".bookmark " : ".bookmark:hover ";
+        if (key == 'e' && !evt.shiftKey) {
+            evt.preventDefault();
+            location.href = $(bmSelector + " .local-edit-link").attr('href');
+        }
+        if (key == 'c' && !evt.shiftKey) {
+            evt.preventDefault();
+            copyMarkToClipboard($(bmSelector + " .mark_title_line").first());
+        }
+        if (key == 's' && !evt.shiftKey) {
+            evt.preventDefault();
+            toggleSimilar($(bmSelector));
+        }
+        if (key == 's' && evt.shiftKey) {
+            evt.preventDefault();
+            $(".bookmark").each(function () { toggleSimilar($(this)); });
+        }
+    });
 });
