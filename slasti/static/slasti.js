@@ -51,11 +51,22 @@ $(document).ready(function() {
       document.execCommand('copy');
       document.body.removeChild(el);
     };
-    function urlX(url) {
+    function is_url_allowed(url) {
         if (/^https?:\/\//.test(url)
             || /^data:image\/png;/.test(url)
             || url.toString().startsWith(s_userurl)
         ) { return url }
+    }
+    function render_markdown_into(input, target) {
+        const NOSANITIZE_TAG = '!no-sanitize\n';
+        const skipSanitization = s_allow_unsanitized_html && input.startsWith(NOSANITIZE_TAG);
+        if (input.startsWith(NOSANITIZE_TAG)) {
+            input = input.substr(NOSANITIZE_TAG.length);
+        }
+        const mkd = mkd_parser.parse(input);
+        const html = mkd_renderer.render(mkd);
+        const sanitized = skipSanitization ? html : html_sanitize(html, is_url_allowed);
+        target.html(sanitized);
     }
     const numNotes = $(".note").length;
     $(".note").each(function(index, elem) {
@@ -70,23 +81,17 @@ $(document).ready(function() {
         } else {
             input = full_input;
         }
-        const mkd = mkd_parser.parse(input);
-        $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
+        render_markdown_into(input, $(this));
         if (full_input !== input) {
             $("<p><a href='javascript:void' title='Expand'>[+]</a></p>")
-             .click(() => {
-                const mkd = mkd_parser.parse(full_input);
-                $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
-             })
-             .appendTo($(this));
+                .click(() => render_markdown_into(full_input, $(this)))
+                .appendTo($(this));
         }
     });
     function parseAndRender() {
         $("#note-rendered-container").show();
-        var input = $("#note-text").val();
-        var mkd = mkd_parser.parse(input);
-        var raw = mkd_renderer.render(mkd);
-        $("#note-rendered").html(html_sanitize(raw, urlX));
+        const input = $("#note-text").val();
+        render_markdown_into(input, $("#note-rendered"));
         MathJax.Hub.Queue(["Typeset",MathJax.Hub,"note-rendered"]);
     }
     $("#note-text").bind('input propertychange',
