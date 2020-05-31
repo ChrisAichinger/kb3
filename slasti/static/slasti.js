@@ -57,11 +57,28 @@ $(document).ready(function() {
             || url.toString().startsWith(s_userurl)
         ) { return url }
     }
+    const numNotes = $(".note").length;
     $(".note").each(function(index, elem) {
-        if (this.childNodes.length) {
-            var input = this.childNodes[0].nodeValue;
-            var mkd = mkd_parser.parse(input);
-            $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
+        if (!this.childNodes.length) {
+            return;
+        }
+        const INPUT_CUTOFF_CHARACTERS = 1500;
+        const full_input = this.childNodes[0].nodeValue;
+        let input;
+        if (numNotes > 1 && full_input.length > INPUT_CUTOFF_CHARACTERS) {
+            input = full_input.substr(0, INPUT_CUTOFF_CHARACTERS) + '...';
+        } else {
+            input = full_input;
+        }
+        const mkd = mkd_parser.parse(input);
+        $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
+        if (full_input !== input) {
+            $("<p><a href='javascript:void' title='Expand'>[+]</a></p>")
+             .click(() => {
+                const mkd = mkd_parser.parse(full_input);
+                $(this).html(html_sanitize(mkd_renderer.render(mkd), urlX));
+             })
+             .appendTo($(this));
         }
     });
     function parseAndRender() {
