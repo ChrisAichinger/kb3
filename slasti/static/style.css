@@ -230,3 +230,9 @@ div.olControlAttribution {
     flex: 1;
     width: 100%
 }
+
+blockquote {
+    border-left: 2px solid #5a71b5;
+    margin-left: 1.5em;
+    padding-left: 1em;
+}
