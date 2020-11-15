@@ -248,3 +248,46 @@ blockquote {
 #note-textarea {
     display: none;
 }
+
+@media (prefers-color-scheme: dark) {
+    body {
+        color: #ddd;
+        background-color: #121212;
+    }
+    .bookmark, #markdown_cheatsheet, #map_search {
+        background: #323232;
+        border: 0px solid transparent;
+        border-radius: 5px;
+    }
+    #map_search {
+        background: #606060;
+    }
+    .bar_top {
+        background: #323232;
+        border-radius: 5px;
+    }
+    .mark_mini_actions a:link, .mark_mini_actions a:visited {
+        color: #fafafa;
+        border-color: #666;
+    }
+    input[type=text], textarea {
+        background-color: #333a4a;
+        color: #fafafa;
+        border: 1px solid #1F2430;
+    }
+    a:link, a:visited, .note a:link, a.mark_link:link {
+        color: #57b0ff;
+    }
+    .note a:visited, a.mark_link:visited {
+        color: #8688ff;
+    }
+    input[type=submit], input[type=button] {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #ffffff2e;
+        color: inherit;
+    }
+    .note img {
+        filter: brightness(.9) contrast(1.1);
+    }
+}
