@@ -267,12 +267,12 @@ blockquote {
         border-radius: 5px;
     }
     .mark_mini_actions a:link, .mark_mini_actions a:visited {
-        color: #fafafa;
+        color: #e3e3e3;
         border-color: #666;
     }
     input[type=text], textarea {
         background-color: #333a4a;
-        color: #fafafa;
+        color: #e3e3e3;
         border: 1px solid #1F2430;
     }
     a:link, a:visited, .note a:link, a.mark_link:link {
