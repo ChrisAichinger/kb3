@@ -17,7 +17,12 @@
 
   <div class="editform-elem margin-above">Notes</div>
   <div class="flex-container">
-    <textarea name="note" type="text" id="note-text" rows=12>{{(mark.note or '')|e}}</textarea>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"
+      integrity="sha512-GZ1RIgZaSc8rnco/8CXfRdCpDxRCphenIiZ2ztLy3XQfCbQUSCuk8IudvNHxkRA3oUg6q0qejgN/qqyG1duv5Q==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-markdown.min.js"
+      integrity="sha512-8euv05RhbuOcZWj/kpF+KtKN7g1CPx7buTZjIBf/rZQz47cduH3DERWoqJFrIYE0TzaIlptz+Ir2BodrmLT8kQ==" crossorigin="anonymous"></script>
+    <pre name="note" type="text" id="note-text" rows=12>{{(mark.note or '')|e}}</pre>
+    <textarea name="note" type="text" id="note-textarea">{{(mark.note or '')|e}}</textarea>
   </div>
 
    <div id="cheatsheet_wrap" class="editform-elem-colspan alignRight posRelative">
@@ -28,7 +33,8 @@
            [Link](URL)<br/>
            ![Picture alt](URL)<br/>
            _italics_, **bold**, `code`<br/>
-           ---- hr
+           ---- hr<br/>
+           <a href="https://github.com/ajaxorg/ace/wiki/default-keyboard-shortcuts">ACE Editor Keyboard Shortcuts</a>
        </div>
    </div>
    <div class="editform-elem-colspan margin-above">

@@ -88,24 +88,47 @@ $(document).ready(function() {
                 .appendTo($(this));
         }
     });
-    function parseAndRender() {
-        $("#note-rendered-container").show();
-        const input = $("#note-text").val();
-        render_markdown_into(input, $("#note-rendered"));
-        MathJax.Hub.Queue(["Typeset",MathJax.Hub,"note-rendered"]);
-    }
-    $("#note-text").bind('input propertychange',
-                         debounce(parseAndRender, 50));
-    var expanded_notes = false;
-    $("#note-text").focus(() => {
-        if (expanded_notes) return;
-        expanded_notes = true;
-        $(".editform-container").animate(
-            {"max-width": $(window).width() + "px"},
-            500, 'swing',
-            function() { $(this).css({"max-width": "100%"}); })
-    });
 
+    if (window.ace !== undefined) {
+        ace.define("ace/theme/custom",["require","exports","module","ace/lib/dom"], function(require, exports, module) {
+            exports.isDark = false;
+            exports.cssClass = "ace-custom";
+            exports.cssText = "";
+
+            var dom = require("ace/lib/dom");
+            dom.importCssString(exports.cssText, exports.cssClass);
+        });
+
+        window.editor = ace.edit("note-text");
+        editor.setTheme("ace/theme/chrome");
+        editor.session.setMode("ace/mode/markdown");
+        editor.session.setTabSize(2);
+        editor.session.setUseSoftTabs(true);
+        editor.renderer.setShowGutter(false);
+
+        const parseAndRender = debounce(() => {
+            $("#note-rendered-container").show();
+            const input = editor.getValue();
+            render_markdown_into(input, $("#note-rendered"));
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"note-rendered"]);
+        }, 50);
+        const textarea = $("#note-textarea")
+        editor.getSession().on('change', () => {
+            textarea.val(editor.getValue());
+            parseAndRender();
+        });
+        const resizeObserver = new ResizeObserver(() => editor.resize())
+        resizeObserver.observe($("#note-text").get()[0]);
+        var expanded_notes = false;
+        editor.on('focus', () => {
+            if (expanded_notes) return;
+            expanded_notes = true;
+            $(".editform-container").animate(
+                {"max-width": $(window).width() + "px"},
+                500, 'swing',
+                function() { $(this).css({"max-width": "100%"}); editor.resize(); })
+        });
+    }
 
     function registerTitleLineEventHandlers() {
         var canHideMetaLinks = {};
