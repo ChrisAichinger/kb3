@@ -229,138 +229,86 @@ $(document).ready(function() {
         map_plot(plot_items);
     });
 
-    $("#mapclosebtn").click(function(evt) {
-        map.destroy();
-        $("#mapwrap").css({display: "none"});
-    });
-
-    function map_plot(plot_items) {
-        $("#mapwrap").css({display: "block"});
-
-        var mapbox = new OpenLayers.Layer.XYZ("MapBox Streets", [
-            "https://a.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
-            "https://b.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
-            "https://c.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
-            "https://d.tiles.mapbox.com/v3/greek0.h0a1ljej/${z}/${x}/${y}.png",
-            ], {
-                attribution:
-                    "Tiles &copy; <a href='http://mapbox.com/'>MapBox</a> | " +
-                    "Data &copy; <a href='http://www.openstreetmap.org/'>" +
-                    "OpenStreetMap</a> and contributors, CC-BY-SA",
-                sphericalMercator: true,
-                wrapDateLine: true,
-                //transitionEffect: "resize",
-                // buffer: 1,
-                numZoomLevels: 17,
-                //'maxExtent': new OpenLayers.Bounds(1000,100,-1000,-100)
-            },
-            {isBaseLayer: true});
-
-        // Bootstrap OpenLayers
-        map = new OpenLayers.Map("mapdisplay");
-        map.addLayer(mapbox);
-        /*map.addLayer(new OpenLayers.Layer.Bing({
-                            name: "Road",
-                            key: "AqTGBsziZHIJYYxgivLBf0hVdrAk9mWO" +
-                                 "5cQcb8Yux8sW5M8c8opEC2lZqKR1ZZXf",
-                            type: "Road"
-                        }));*/
-
-        var epsg4326 = new OpenLayers.Projection("EPSG:4326"); // WGS 84
-        var projectTo = map.getProjectionObject();     // Map projection
-
+    function calculateCenter(plot_items) {
         var all_coords = [];
         $.each(plot_items, function(name, coords) {
             // Append coords array to all_coords.
             Array.prototype.push.apply(all_coords, coords);
         });
-        // Calculate the map center
-        var sumLon = all_coords.reduce(function(f, c) { return f+c.lon; }, 0);
-        var sumLat = all_coords.reduce(function(f, c) { return f+c.lat; }, 0);
-        var centerLon = sumLon / all_coords.length;
-        var centerLat = sumLat / all_coords.length;
-        var lonLat = new OpenLayers.LonLat(centerLon, centerLat)
-                                   .transform(epsg4326, projectTo);
-        var zoom=5;
-        map.setCenter(lonLat, zoom);
+        const sumLon = all_coords.reduce(function(f, c) { return f+c.lon; }, 0);
+        const sumLat = all_coords.reduce(function(f, c) { return f+c.lat; }, 0);
+        const centerLon = sumLon / all_coords.length;
+        const centerLat = sumLat / all_coords.length;
+        return [centerLat, centerLon];
+    }
 
-        var colors = ["#e00", "#0f0", "#33f", "#ee0", "#c0c", "#0cc",
-                      "#f80", "#0fa", "#0af", "#192", "#912", "#12a"];
-        var color_index = 0;
-        // Define markers as "features" of the vector layer:
-        var vectorLayer = new OpenLayers.Layer.Vector("Overlay");
+    function map_plot(plot_items) {
+        $("#mapwrap").css({display: "block"});
+
+        const zoom=5;
+        const center = calculateCenter(plot_items);
+        const colors = ["#e00", "#0f0", "#33f", "#ee0", "#c0c", "#0cc",
+                        "#f80", "#0fa", "#0af", "#192", "#912", "#12a"];
+
+        const map = L.map('mapdisplay').setView(center, zoom);
+        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+            attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> ' +
+                         '© <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+                         '<strong><a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve this map</a></strong>',
+            tileSize: 512,
+            maxZoom: 18,
+            zoomOffset: -1,
+            id: 'mapbox/outdoors-v11',
+            accessToken: 'pk.eyJ1IjoiZ3JlZWswIiwiYSI6IjFDMjFjSWcifQ.7GpHi4dB3TzrBmPKtpdJ6A'
+        }).addTo(map);
+
+        let color_index = 0;
         $.each(plot_items, function(name, coords) {
-            var color = colors[color_index % colors.length];
-            color_index++;
+            const color = colors[color_index++ % colors.length];
             $.each(coords, function(i, coord) {
-                var feature = new OpenLayers.Feature.Vector(
-                        new OpenLayers.Geometry.Point(coord.lon, coord.lat)
-                                               .transform(epsg4326, projectTo),
-                        coord,
-                        {title: coord.description,
-                         fillColor: color, strokeColor: "#000",
-                         strokeWidth: 1,
-                         strokeLinecap: "round",
-                         strokeDashstyle: "solid",
-                         pointRadius: 5,
-                         pointerEvents: "visiblePainted",
-                         labelAlign: "cm",
-                         labelOutlineColor: "white",
-                         labelOutlineWidth: 3,
-                    });
-                vectorLayer.addFeatures(feature);
+                const marker = L.circleMarker([coord.lat, coord.lon], {
+                    title: coord.description,
+                    alt: coord.description,
+                    fillColor: color,
+                    fillOpacity: 1.0,
+                    color: "#000",
+                    weight: 1,
+                    radius: 5,
+                });
+                const comment = coord.comment.length ? ('<br/>' + coord.comment) : "";
+                marker.bindPopup(`
+                  <div class="markerContent">[<a href="${coord.mark_href}">${coord.mark_text}</a>]
+                    <a href="${coord.href}">${coord.name}</a>${comment}
+                  </div>`);
+                marker.addTo(map);
             });
         });
-        map.addLayer(vectorLayer);
 
-        // Add a selector control to the vectorLayer with popup functions
-        var controls = {
-          selector: new OpenLayers.Control.SelectFeature(vectorLayer,
-                           { onSelect: createPopup, onUnselect: destroyPopup })
-        };
-
-        function createPopup(feature) {
-          var coord = feature.attributes;
-          feature.popup = new OpenLayers.Popup.FramedCloud("pop",
-              feature.geometry.getBounds().getCenterLonLat(),
-              null,
-              '<div class="markerContent">' +
-                  '[<a href="' + coord.mark_href + '">' +
-                                 coord.mark_text + '</a>] ' +
-                  '<a href="' + coord.href + '">' + coord.name + '</a>' +
-                  (coord.comment.length ? ('<br/>' + coord.comment) : "") +
-                  '</div>',
-              null,
-              false,
-              function() { controls['selector'].unselectAll(); }
-          );
-          feature.popup.closeOnMove = true;
-          feature.popup.autosize = true;
-          map.addPopup(feature.popup);
-        }
-
-        function destroyPopup(feature) {
-          feature.popup.destroy();
-          feature.popup = null;
-        }
-
-        map.addControl(controls['selector']);
-        controls['selector'].activate();
+        $("#mapclosebtn").click(function(evt) {
+            map.remove();
+            $("#mapwrap").css({display: "none"});
+        });
     }
 
 
     $("#loc_parse").click(function(evt) {
-        // First load openlayers slippymap
-        var openlayers = slasti_js_dir + "OpenLayers/OpenLayers.light.js";
-        $.getScript(openlayers, function(data, textStatus, jqxhr) {
-            // _getScriptLocation doesn't work when loaded via jQuery, fix it
-            OpenLayers._getScriptLocation = function() {
-                return slasti_js_dir + "OpenLayers/";
-            };
-
-            // Then load all loc: containing entries and process them
-            var search_url = $("form[action *= 'search']").attr('action');
-            $.get(search_url + "?q=loc:&nopage=1", process_loc_data);
+        $('head').append(`
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+               integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+               crossorigin=""/>
+        `);
+        $.ajax({
+              url: "https://unpkg.com/leaflet@1.7.1/dist/leaflet.js",
+              dataType: "script",
+              scriptAttrs: {
+                  integrity: "sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==",
+                  crossorigin: "",
+              },
+              success: () => {
+                  // Load all marks where the note contains 'loc:' for processing.
+                  const search_url = $("form[action *= 'search']").attr('action');
+                  $.get(search_url + "?q=loc:&nopage=1", process_loc_data);
+              },
         });
     });
 
