@@ -100,7 +100,7 @@ $(document).ready(function() {
         });
 
         window.editor = ace.edit("note-text");
-        editor.setTheme("ace/theme/chrome");
+        editor.setTheme("ace/theme/custom");
         editor.session.setMode("ace/mode/markdown");
         editor.session.setTabSize(2);
         editor.session.setUseSoftTabs(true);

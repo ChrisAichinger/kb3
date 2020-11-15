@@ -291,3 +291,89 @@ blockquote {
         filter: brightness(.9) contrast(1.1);
     }
 }
+
+
+/********************
+ * ACE Editor Theme *
+ ********************/
+
+.ace-custom {
+    background-color: #FFFFFF;
+    color: black;
+}
+.ace-custom .ace_heading, .ace-custom .ace_strong {
+    font-weight: bold;
+}
+.ace-custom .ace_emphasis {
+    font-style: italic;
+}
+.ace-custom .ace_heading,                                                                /* Heading and <hr> */
+.ace-custom .ace_string:not(.ace_strong):not(.ace_emphasis):not(.ace_attribute-value) {  /* Link Text: [x](...) ![x](...) */
+    color: #0c07ff;
+}
+.ace-custom .ace_support.ace_function, .ace_identifier {  /* Code blocks */
+    color: rgb(166, 30, 88);
+}
+.ace-custom .ace_meta.ace_tag,         /* HTML markup */
+.ace-custom .ace_attribute-name,       /* HTML markup attribute */
+.ace-custom .ace_attribute-equals,     /* HTML markup attribute */
+.ace-custom .ace_attribute-value,      /* HTML markup attribute */
+.ace-custom .ace_comment {             /* Inline <!-- --> HTML comments */
+    color: rgb(140, 15, 128);
+}
+.ace-custom .ace_indent-guide {
+    background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAAE0lEQVQImWP4////f4bLly//BwAmVgd1/w11/gAAAABJRU5ErkJggg==") right repeat-y;
+}
+
+.ace-custom .ace_marker-layer .ace_selection {
+    background: rgb(181, 213, 255);
+}
+.ace-custom .ace_marker-layer .ace_step {
+    background: rgb(252, 255, 0);
+}
+.ace-custom .ace_marker-layer .ace_stack {
+    background: rgb(164, 229, 101);
+}
+.ace-custom .ace_marker-layer .ace_bracket {
+    margin: -1px 0 0 -1px;
+    border: 1px solid rgb(192, 192, 192);
+}
+.ace-custom .ace_marker-layer .ace_active-line {
+    background: rgba(0, 0, 0, 0.07);
+}
+.ace-custom .ace_marker-layer .ace_selected-word {
+    background: rgb(250, 250, 255);
+    border: 1px solid rgb(200, 200, 250);
+}
+
+@media (prefers-color-scheme: dark) {
+    .ace-custom {
+        background-color: #333a4a;
+        color: #e3e3e3;
+    }
+    .ace-custom .ace_heading,                                                                /* Heading and <hr> */
+    .ace-custom .ace_string:not(.ace_strong):not(.ace_emphasis):not(.ace_attribute-value) {  /* Link Text: [x](...) ![x](...) */
+        color: #57b0ff;
+    }
+    .ace-custom .ace_support.ace_function, .ace_identifier {  /* Code blocks */
+        color: rgb(255, 140, 140);
+    }
+    .ace-custom .ace_meta.ace_tag,         /* HTML markup */
+    .ace-custom .ace_attribute-name,       /* HTML markup attribute */
+    .ace-custom .ace_attribute-equals,     /* HTML markup attribute */
+    .ace-custom .ace_attribute-value,      /* HTML markup attribute */
+    .ace-custom .ace_comment {             /* Inline <!-- --> HTML comments */
+        color: #d790c8;
+    }
+    .ace-custom .ace_indent-guide {
+        background-size: 5px 5px;
+        background-image: linear-gradient(to right, rgb(255, 255, 255, 0.2) 1px, transparent 1px);
+    }
+
+    .ace-custom .ace_marker-layer .ace_selection {
+        background: rgb(47, 76, 115);
+    }
+    .ace-custom .ace_marker-layer .ace_active-line {
+        background: rgba(255, 255, 255, 0.07);
+    }
+}
