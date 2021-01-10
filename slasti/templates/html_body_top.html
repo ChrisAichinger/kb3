@@ -12,6 +12,7 @@
         {% endif %}
         [<b><a href="{{ url_for_current_user('bookmarks.taglist_view') }}">tags</a></b>]
         [<a href="{{ url_for_current_user('bookmarks.new_edit_view') }}">new</a>]
+        [<a href="javascript:(function(){location.href='{{ url_for_current_user('bookmarks.new_edit_view') }}?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title);})()">bookmarklet</a>]
         {% if show_export %}
             [<a href="{{ url_for_current_user('bookmarks.export_view') }}">e</a>]
         {% else %}
