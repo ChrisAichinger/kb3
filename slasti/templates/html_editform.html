@@ -21,11 +21,13 @@
       integrity="sha512-GZ1RIgZaSc8rnco/8CXfRdCpDxRCphenIiZ2ztLy3XQfCbQUSCuk8IudvNHxkRA3oUg6q0qejgN/qqyG1duv5Q==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-markdown.min.js"
       integrity="sha512-8euv05RhbuOcZWj/kpF+KtKN7g1CPx7buTZjIBf/rZQz47cduH3DERWoqJFrIYE0TzaIlptz+Ir2BodrmLT8kQ==" crossorigin="anonymous"></script>
-    <pre name="note" type="text" id="note-text" rows=12>{{(mark.note or '')|e}}</pre>
+    <div id="note-text" contenteditable="true" spellcheck="true" tabindex="-1">{{(mark.note or '')|e}}</div>
     <textarea name="note" type="text" id="note-textarea">{{(mark.note or '')|e}}</textarea>
   </div>
 
    <div id="cheatsheet_wrap" class="editform-elem-colspan alignRight posRelative">
+       <a id="markdown_zoom_out_btn" href="javascript:void(0)">Z-</a>
+       <a id="markdown_zoom_in_btn" href="javascript:void(0)">Z+</a>
        <a id="markdown_cheatsheet_btn" href="javascript:void(0)">CheatSheet</a>
        <div id="markdown_cheatsheet" style="display:none">
            &#35; H1<br/>

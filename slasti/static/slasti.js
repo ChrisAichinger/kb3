@@ -104,6 +104,7 @@ $(document).ready(function() {
         editor.session.setMode("ace/mode/markdown");
         editor.session.setTabSize(2);
         editor.session.setUseSoftTabs(true);
+        editor.session.setUseWrapMode(true)
         editor.renderer.setShowGutter(false);
 
         const parseAndRender = debounce(() => {
@@ -310,6 +311,13 @@ $(document).ready(function() {
                   $.get(search_url + "?q=loc:&nopage=1", process_loc_data);
               },
         });
+    });
+
+    $("#markdown_zoom_out_btn").click(function(evt) {
+        editor.setOption("fontSize", editor.getOption("fontSize") - 2);
+    });
+    $("#markdown_zoom_in_btn").click(function(evt) {
+        editor.setOption("fontSize", editor.getOption("fontSize") + 2);
     });
 
     $("#markdown_cheatsheet_btn").click(function(evt) {
