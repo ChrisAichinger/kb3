@@ -35,6 +35,7 @@ ul {
 
 .bookmark {
     padding-left: 0.375em;
+    padding-right: 0.375em;
     margin-left: 0.125px;
     margin-top: 1em;
     margin-bottom: 1em;
@@ -155,6 +156,18 @@ div.olControlAttribution {
 }
 .posRelative {
     position: relative;
+}
+
+.mark_stars {
+    float: right;
+    color: #ff0;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-text-stroke: 0.5px #444;
 }
 
 .mark_mini_actions {

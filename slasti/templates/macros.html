@@ -16,3 +16,7 @@
   <a href="{{mark.url|e}}" class="mark_link">{{mark.title | e}}</a>
 </span>
 {%- endmacro %}
+
+{% macro bookmark_stars(mark) -%}
+<div class="mark_stars">{{ ' '.join([BLACKSTAR] * mark.stars) }}</div>
+{%- endmacro %}

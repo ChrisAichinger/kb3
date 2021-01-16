@@ -75,6 +75,12 @@ class Bookmark:
             tags = [t for t in tags.split(' ') if t]
         self._tags = tags
 
+    @property
+    def stars(self):
+        matching_tags = [re.match(r'^([0-5])star$', tag) for tag in self.tags]
+        star_list = [int(m.group(1)) for m in matching_tags if m]
+        return max(star_list, default=0)
+
     def __eq__(self, rhs):
         if self.id is not None:
             return self.id == rhs.id

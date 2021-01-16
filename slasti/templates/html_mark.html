@@ -7,6 +7,7 @@
       data-mark-id="{{mark.id}}"
       data-mark-similar-link="{{ url_for_current_user('bookmarks.similar_view', mark_id=mark.id) }}"
     >
+      {{- macros.bookmark_stars(mark) -}}
       {{- macros.bookmark_title_line(mark, show_similar=True) -}}<br />
       {% for tag in mark.tags %}
           <a href="{{ url_for_current_user('bookmarks.list_view', tag_name=tag) }}" class="mark_tag">{{tag|e}}</a>
