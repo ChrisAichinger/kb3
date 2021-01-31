@@ -393,4 +393,77 @@ $(document).ready(function() {
             $(".bookmark").each(function () { toggleSimilar($(this)); });
         }
     });
+
+    class TagAutoComplete {
+        constructor(selector, allTags, options) {
+            this.selector = selector;
+            this.allTags = allTags;
+            $(selector)
+                .on("keydown", (event) => {
+                    // Don't navigate away from the field on tab when selecting an item.
+                    if (event.keyCode === $.ui.keyCode.TAB && this.jui.menu.active) {
+                        event.preventDefault();
+                    }
+                    const movementKeys = [$.ui.keyCode.HOME, $.ui.keyCode.END, $.ui.keyCode.LEFT, $.ui.keyCode.RIGHT, $.ui.keyCode.ENTER];
+                    if (movementKeys.includes(event.keyCode)) {
+                        this.jui.close(event);
+                        this.jui.disable();
+                    } else {
+                        this.jui.enable();
+                    }
+                })
+                .on("blur", (event) => {
+                    this.jui.close(event);
+                    this.jui.disable();
+                })
+                .autocomplete({
+                    ...options,
+                    source: this.source,
+                    select: this.select,
+                    search: this.search,
+                    focus: () => false,  // prevent value inserted on focus
+                });
+            this.jui = $(selector).autocomplete("instance");
+            this.el = $(selector).get(0);
+        }
+        splitTags = (val) => {
+            return val.split(/\s+/);
+        }
+        getCompletableWord = () => {
+            const value = this.el.value;
+            if (this.el.selectionStart !== this.el.selectionEnd) {
+                return null;  // Text range selected, no good options here...
+            }
+            if (this.el.selectionStart !== value.length && value[this.el.selectionStart] !== ' ') {
+                return null;  // Cursor is within a word, can't offer good suggestions for this.
+            }
+            const tags = this.splitTags(value.substr(0, this.el.selectionStart));
+            return {
+                index: tags.length - 1,
+                value: tags[tags.length - 1],
+            };
+        }
+        source = (request, response) => {
+            console.assert(request.term === this.el.value);
+            response($.ui.autocomplete.filter(this.allTags, this.getCompletableWord().value));
+        }
+        select = (event, ui) => {
+            const tags = this.splitTags(this.el.value);
+            tags[this.getCompletableWord().index] = ui.item.value;
+            tags.push("");  // Add placeholder to get the space at the end
+            this.el.value = tags.join(" ");
+            return false;
+        }
+        search = (event, ui) => {
+            const cw = this.getCompletableWord();
+            if (cw === null || cw.value.length < this.jui.options.minLength) {
+                this.jui.close(event);
+                return false;
+            }
+        }
+    }
+    if ($("#tags-input").length) {
+        const allTags = $("#tags-input").attr('data-all-tags').split(' ');
+        const tac = new TagAutoComplete("#tags-input", allTags, {minLength: 3, autoFocus: true});
+    }
 });

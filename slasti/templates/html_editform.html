@@ -12,8 +12,17 @@
   <div class="editform-elem margin-above">URL</div>
   <input name="url" type="text" maxlength=1024 value="{{mark.url|e}}"/>
 
+  <link rel="stylesheet"
+    href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css"
+    integrity="sha384-xewr6kSkq3dBbEtB6Z/3oFZmknWn7nHqhLVLrYgzEFRbU/DHSxW7K3B44yWUN60D"
+    crossorigin="anonymous">
+  <script
+    src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+    integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+    crossorigin="anonymous"></script>
   <div class="editform-elem margin-above">Tags</div>
-  <input name="tags" type="text" maxlength=1024 value="{{' '.join(mark.tags or [])|e}}"/>
+  <input name="tags" type="text" id="tags-input" maxlength=1024 value="{{' '.join(mark.tags or [])|e}}"
+    data-all-tags="{{' '.join(all_tags)}}" />
 
   <div class="editform-elem margin-above">Notes</div>
   <div class="flex-container">

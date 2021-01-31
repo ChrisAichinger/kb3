@@ -157,6 +157,7 @@ def new_edit_view(user, mark_id):
         mark=mark,
         same_url_marks=g.db.get_marks(url=mark.url, not_mark_id=mark.id),
         similar_marks=g.db.find_similar(mark),
+        all_tags=[t.name for t in g.db.get_tags(sort_by_frequency=True)],
     )
 
 

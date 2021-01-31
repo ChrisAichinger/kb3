@@ -329,12 +329,16 @@ class SlastiDB:
             return None
         return result[0]
 
-    def get_tags(self):
+    def get_tags(self, sort_by_frequency=False):
+        if sort_by_frequency:
+            sorter = "count(mark_id) DESC"
+        else:
+            sorter = "tag ASC"
         rows = self.dbconn.execute(
                 """SELECT tag, count(mark_id) AS cnt FROM tags
                           JOIN mark_tags USING (tag_id)
                           GROUP BY tag_id
-                          ORDER BY tag ASC;""")
+                          ORDER BY """ + sorter + ";")
         for row in rows:
             yield Tag(row[0], row[1])
 
