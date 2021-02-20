@@ -249,6 +249,16 @@ blockquote {
     padding-left: 1em;
 }
 
+li > blockquote {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+li > blockquote > p {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
 #note-text {
     height: 30em;
     resize:vertical;
