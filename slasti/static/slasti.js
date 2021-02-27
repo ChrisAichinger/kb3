@@ -394,6 +394,12 @@ $(document).ready(function() {
                 $("#submit-save").click();
             }
         });
+        $("form[name='editform']").submit(function (evt) {
+            if (!$("input[name='tags']").val().trim()) {
+                evt.preventDefault();
+                alert("Please enter some tags before submitting.");
+            }
+        });
     }
 
     function copyMarkToClipboard(titleLineEl) {
