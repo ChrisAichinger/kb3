@@ -381,17 +381,17 @@ $(document).ready(function() {
         $("#markdown_cheatsheet").css({display: "block"});
     });
 
-    if ($("input[type='submit'][value='Save']").length > 0) {
+    if ($("#submit-save").length > 0) {
         $(window).bind('keydown', function(evt) {
             var key = String.fromCharCode(evt.which).toLowerCase();
             if ((evt.ctrlKey || evt.metaKey) && key == 's') {
                 evt.preventDefault();
-                $("input[type='submit'][value='Save']").click();
+                $("#submit-save").click();
             }
         });
-        $('#note-text').keydown(function (e) {
-            if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
-                $("input[type='submit'][value='Save']").click();
+        $('#note-text').keydown(function (evt) {
+            if (evt.ctrlKey && (evt.keyCode == 13 || evt.keyCode == 10)) {
+                $("#submit-save").click();
             }
         });
     }

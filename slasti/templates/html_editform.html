@@ -9,8 +9,7 @@
 <div class="editform-container">
   <div class="editform-elem margin-above">Title</div>
   <div class="editform-elem flex-container">
-    <input name="title" type="text" maxlength=1024 id="edt_title"
-             value="{{mark.title|e}}" />
+    <input name="title" type="text" maxlength=1024 id="edt_title" value="{{mark.title|e}}" />
   </div>
   <div class="editform-elem margin-above">URL</div>
   <input name="url" type="text" maxlength=1024 value="{{mark.url|e}}"/>
@@ -30,9 +29,11 @@
   <div class="editform-elem margin-above">Notes</div>
   <div class="flex-container">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"
-      integrity="sha512-GZ1RIgZaSc8rnco/8CXfRdCpDxRCphenIiZ2ztLy3XQfCbQUSCuk8IudvNHxkRA3oUg6q0qejgN/qqyG1duv5Q==" crossorigin="anonymous"></script>
+      integrity="sha512-GZ1RIgZaSc8rnco/8CXfRdCpDxRCphenIiZ2ztLy3XQfCbQUSCuk8IudvNHxkRA3oUg6q0qejgN/qqyG1duv5Q=="
+      crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-markdown.min.js"
-      integrity="sha512-8euv05RhbuOcZWj/kpF+KtKN7g1CPx7buTZjIBf/rZQz47cduH3DERWoqJFrIYE0TzaIlptz+Ir2BodrmLT8kQ==" crossorigin="anonymous"></script>
+      integrity="sha512-8euv05RhbuOcZWj/kpF+KtKN7g1CPx7buTZjIBf/rZQz47cduH3DERWoqJFrIYE0TzaIlptz+Ir2BodrmLT8kQ=="
+      crossorigin="anonymous"></script>
     <div id="note-text" contenteditable="true" spellcheck="true" tabindex="-1">{{(mark.note or '')|e}}</div>
     <textarea name="note" type="text" id="note-textarea">{{(mark.note or '')|e}}</textarea>
   </div>
@@ -52,7 +53,7 @@
        </div>
    </div>
    <div class="editform-elem-colspan margin-above">
-     <input name=action type=submit value="Save" />
+     <input id="submit-save" name="action" type="submit" value="Save" />
    </div>
 </div>
 </form>
@@ -60,7 +61,7 @@
 {% if mark.id is not none %}
 <p>or</p>
 <form action="{{ url_for_current_user('bookmarks.delete_view', mark_id=mark.id) }}" method="POST">
-  <input name=action type=submit value="Delete" />
+  <input id="submit-delete" name="action" type="submit" value="Delete" />
   (There is no undo.)
 </form>
 {% endif %}
