@@ -2,7 +2,10 @@
 
 {%include "html_header.html"%}
 {%include "html_body_top.html"%}
-<form action="{{url_for_current_user('.new_edit_post_view', mark_id=mark.id)}}" method="POST" name="editform">
+<form name="editform"
+      action="{{url_for_current_user('.new_edit_post_view', mark_id=mark.id)}}" method="POST"
+      {% if mark.id is not none %}data-mark-id="{{mark.id}}"{% endif %}
+>
 <div class="editform-container">
   <div class="editform-elem margin-above">Title</div>
   <div class="editform-elem flex-container">

@@ -7,6 +7,51 @@ slasti_js_dir = (function () {
 })()
 
 
+class LocalStorageCache {
+    constructor() {
+        const markId = $("form[name='editform']").attr('data-mark-id')
+        const keyId = markId ? 'mark-' + markId : 'new-' + $("input[name='url']").val();
+        this.lastExpirationKey = 'slasti-last-expiration';
+        this.notePrefix = 'slasti-note-';
+        this.metaPrefix = 'slasti-meta-';
+        this.noteKey = this.notePrefix + keyId;
+        this.metaKey = this.metaPrefix + keyId;
+
+        this.expireCheckMilliSec = 1000*3600*24*7;
+        this.cacheLifetimeMilliSec = 1000*3600*24*30;
+        if (this._isExpired(this.lastExpirationKey, this.expireCheckMilliSec)) {
+            this.expireOldEntries();
+            localStorage.setItem(this.lastExpirationKey, (+ new Date()).toString());
+        }
+    }
+    get = () => {
+        return localStorage.getItem(this.noteKey);
+    }
+    set = (val) => {
+        localStorage.setItem(this.noteKey, val);
+        localStorage.setItem(this.metaKey, (+ new Date()).toString());
+    }
+    remove = () => {
+        localStorage.removeItem(this.noteKey);
+        localStorage.removeItem(this.metaKey);
+    }
+    _isExpired = (key, timeoutMilliSec) => {
+        const now = (+ new Date());
+        const metaDate = parseInt(localStorage.getItem(key));
+        return !metaDate || now - metaDate > timeoutMilliSec;
+    }
+    expireOldEntries = () => {
+        for (let i=0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(this.metaPrefix) && this._isExpired(key, this.cacheLifetimeMilliSec)) {
+                localStorage.removeItem(key);
+                localStorage.removeItem(this.notePrefix + key.substr(this.metaPrefix.length));
+            }
+        }
+    }
+}
+
+
 $(document).ready(function() {
     var favIcon = "\
     iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAM1BMVEWAF46iDrilHbawPcO1\
@@ -23,7 +68,7 @@ $(document).ready(function() {
 
     var mkd_parser = new stmd.DocParser();
     var mkd_renderer = new stmd.HtmlRenderer();
-
+    const localStorageCache = new LocalStorageCache();
 
     // Returns a function, that, as long as it continues to be invoked, will
     // not be triggered. The function will be called after it stops being
@@ -89,6 +134,12 @@ $(document).ready(function() {
         }
     });
 
+    const serverText = $("#note-text").text();
+    const localText = localStorageCache.get();
+    if (serverText.trim() === "" && localText) {
+        $("#note-text").text(localText);
+    }
+
     if (window.ace !== undefined) {
         ace.define("ace/theme/custom",["require","exports","module","ace/lib/dom"], function(require, exports, module) {
             exports.isDark = false;
@@ -113,10 +164,16 @@ $(document).ready(function() {
             render_markdown_into(input, $("#note-rendered"));
             MathJax.Hub.Queue(["Typeset",MathJax.Hub,"note-rendered"]);
         }, 50);
+        const saveLocalStorage = debounce(() => {
+            if (editor.getValue()) {
+                localStorageCache.set(editor.getValue());
+            }
+        }, 3000);
         const textarea = $("#note-textarea")
         editor.getSession().on('change', () => {
             textarea.val(editor.getValue());
             parseAndRender();
+            saveLocalStorage();
         });
         const resizeObserver = new ResizeObserver(() => editor.resize())
         resizeObserver.observe($("#note-text").get()[0]);
