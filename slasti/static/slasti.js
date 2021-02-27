@@ -186,6 +186,34 @@ $(document).ready(function() {
                 500, 'swing',
                 function() { $(this).css({"max-width": "100%"}); editor.resize(); })
         });
+
+        // Free up "tab" and "shift-tab" for keyboard navigation between input fields.
+        editor.commands.removeCommand('indent');
+        editor.commands.removeCommand('outdent');
+        // Bind block-indent to alt-left / alt-right.
+        delete editor.commands.commandKeyBinding['alt-left'];
+        delete editor.commands.commandKeyBinding['alt-right'];
+        editor.commands.addCommand({
+            ...editor.commands.byName['blockindent'],
+            bindKey: {"win": "Alt-Right","mac": "Alt-Right"}
+        });
+        editor.commands.addCommand({
+            ...editor.commands.byName['blockoutdent'],
+            bindKey: {"win": "Alt-Left","mac": "Alt-Left"}
+        });
+        // Bind Ctrl-B to boldification.
+        editor.commands.addCommand({
+            name: "make-bold",
+            bindKey: {"win": "Ctrl-B","mac": "Cmd-B"},
+            exec: function(editor) {
+                const selection = editor.session.getTextRange(editor.getSelectionRange());
+                if (selection.length) {
+                    editor.insert("**" + selection + "**");
+                } else {
+                    editor.insert("**");
+                }
+            }
+        });
     }
 
     function registerTitleLineEventHandlers() {
