@@ -555,6 +555,6 @@ $(document).ready(function() {
     }
     if ($("#tags-input").length) {
         const allTags = $("#tags-input").attr('data-all-tags').split(' ');
-        const tac = new TagAutoComplete("#tags-input", allTags, {minLength: 3, autoFocus: true});
+        const tac = new TagAutoComplete("#tags-input", allTags, {minLength: 2, autoFocus: true});
     }
 });
