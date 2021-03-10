@@ -194,18 +194,18 @@ class SlastiDB:
         cur.execute("""INSERT INTO marks(time, title, url, note)
                               VALUES (?, ?, ?, ?);""",
                     (mark.time, mark.title, mark.url, mark.note))
-        mark.id = m_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
+        mark.id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
         for tag in mark.tags:
             tag = tag.strip()
             if not tag:
                 continue
             cur.execute("INSERT OR IGNORE INTO tags(tag) VALUES (?);", (tag,))
             t_id = cur.execute("SELECT tag_id FROM tags WHERE tag = ?;", (tag,)).fetchone()[0]
-            cur.execute("INSERT INTO mark_tags VALUES (?, ?);", (m_id, t_id))
+            cur.execute("INSERT INTO mark_tags VALUES (?, ?);", (mark.id, t_id))
         self._save_crosslinks(mark, cur)
         self.cache.invalidate_cursor(cur)
         self.dbconn.commit()
-        return m_id
+        return mark.id
 
     def _update(self, mark):
         cur = self.dbconn.cursor()
