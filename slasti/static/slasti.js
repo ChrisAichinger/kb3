@@ -201,6 +201,19 @@ $(document).ready(function() {
             ...editor.commands.byName['blockoutdent'],
             bindKey: {"win": "Alt-Left","mac": "Alt-Left"}
         });
+        // Bind Ctrl-I to italification.
+        editor.commands.addCommand({
+            name: "make-italic",
+            bindKey: {"win": "Ctrl-I","mac": "Cmd-I"},
+            exec: function(editor) {
+                const selection = editor.session.getTextRange(editor.getSelectionRange());
+                if (selection.length) {
+                    editor.insert("*" + selection + "*");
+                } else {
+                    editor.insert("*");
+                }
+            }
+        });
         // Bind Ctrl-B to boldification.
         editor.commands.addCommand({
             name: "make-bold",
@@ -212,6 +225,28 @@ $(document).ready(function() {
                 } else {
                     editor.insert("**");
                 }
+            }
+        });
+        // Bind Ctrl-8 to insertion of \\( \\) for Mathjax mode.
+        editor.commands.addCommand({
+            name: "make-mathjax",
+            bindKey: {"win": "Ctrl-8","mac": "Cmd-8"},
+            exec: function(editor) {
+                const selection = editor.session.getTextRange(editor.getSelectionRange());
+                if (selection.length) {
+                    editor.insert("\\\\(" + selection + "\\\\)");
+                } else {
+                    editor.insert("\\\\(\\\\)");
+                    editor.navigateLeft(3);
+                }
+            }
+        });
+        // Bind Ctrl-e to go to the end-of-line (emacs / shell shortcut)
+        editor.commands.addCommand({
+            name: "goto-eol",
+            bindKey: {"win": "Ctrl-e","mac": "Cmd-e"},
+            exec: function(editor) {
+                editor.navigateLineEnd();
             }
         });
     }
