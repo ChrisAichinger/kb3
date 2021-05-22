@@ -12,8 +12,8 @@ def create_app(test_config=None):
         app.config.from_mapping(test_config)
 
     assert os.path.isdir(app.instance_path)
-    with open(app.config['SLASTI_USERS_FILE']) as f:
-        app.config['SLASTI_USERS'] = {u['name']: u for u in json.load(f)}
+    with open(app.config['USERS_FILE']) as f:
+        app.config['USERS'] = {u['name']: u for u in json.load(f)}
 
     from . import bookmarks
     app.register_blueprint(bookmarks.bp)

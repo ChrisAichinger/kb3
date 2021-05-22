@@ -1,19 +1,10 @@
-slasti_js_dir = (function () {
-    // Save slasti.js dir for later: stackoverflow.com/questions/8523200
-    var scriptEls = document.getElementsByTagName('script');
-    var scriptPath = scriptEls[scriptEls.length - 1].src;
-    var scriptFolder = scriptPath.substr(0, scriptPath.lastIndexOf( '/' )+1 );
-    return scriptFolder;
-})()
-
-
 class LocalStorageCache {
     constructor() {
         const markId = $("form[name='editform']").attr('data-mark-id')
         const keyId = markId ? 'mark-' + markId : 'new-' + $("input[name='url']").val();
-        this.lastExpirationKey = 'slasti-last-expiration';
-        this.notePrefix = 'slasti-note-';
-        this.metaPrefix = 'slasti-meta-';
+        this.lastExpirationKey = 'kb3-last-expiration';
+        this.notePrefix = 'kb3-note-';
+        this.metaPrefix = 'kb3-meta-';
         this.noteKey = this.notePrefix + keyId;
         this.metaKey = this.metaPrefix + keyId;
 

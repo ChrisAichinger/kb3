@@ -1,7 +1,7 @@
 #
-# Slasti -- Mark/Tag database
+# Bookmark database
 #
-# Copyright (C) 2011 Pete Zaitcev
+# Copyright (C) 2011 Pete Zaitcev, (C) 2011-2021 Christian Aichinger
 # See file COPYING for licensing information (expect GPL 2).
 #
 
@@ -130,7 +130,7 @@ class Tag:
         return self.name
 
 
-class SlastiDB:
+class BookmarkDB:
     def __init__(self, dbfname, abs_url_prefix, stopwords=None, stopword_languages=None, ignore_hosts_in_search=()):
         self.dbfname = dbfname
         must_create_schema = not os.path.isfile(self.dbfname)
@@ -356,8 +356,8 @@ class SlastiDB:
 
     def async_update_similarity_cache(self):
         def f(self):
-            db = SlastiDB(self.dbfname, self.abs_url_prefix, stopwords=self.stopwords,
-                          ignore_hosts_in_search=self.ignore_hosts_in_search)
+            db = BookmarkDB(self.dbfname, self.abs_url_prefix, stopwords=self.stopwords,
+                            ignore_hosts_in_search=self.ignore_hosts_in_search)
             db._refresh_similarity_cache()
         p = mp.Process(target=f, args=(self,))
         p.start()

@@ -37,17 +37,17 @@ def initialize_context():
     if not m:
         abort(404, "No such path or user")
 
-    user = current_app.config['SLASTI_USERS'].get(m.group(1))
+    user = current_app.config['USERS'].get(m.group(1))
     if not user:
         abort(404, f"No such user")
 
     g.user = types.SimpleNamespace(**user)
-    abs_url_prefix = current_app.config['SLASTI_ABS_URL'].rstrip('/') + '/' + user['name']
-    g.db = tagbase.SlastiDB(os.path.join(current_app.config['BASE_DIR'], user['database']),
-                            abs_url_prefix,
-                            stopwords=user.get('stopwords', []),
-                            stopword_languages=user.get('stopword_languages', []),
-                            ignore_hosts_in_search=user.get('ignore_hosts_in_search', []))
+    abs_url_prefix = current_app.config['ABS_ROOT_URL'].rstrip('/') + '/' + user['name']
+    g.db = tagbase.BookmarkDB(os.path.join(current_app.config['BASE_DIR'], user['database']),
+                              abs_url_prefix,
+                              stopwords=user.get('stopwords', []),
+                              stopword_languages=user.get('stopword_languages', []),
+                              ignore_hosts_in_search=user.get('ignore_hosts_in_search', []))
 
     current_app.jinja_env.globals['url_for_current_user'] = url_for_current_user
     current_app.jinja_env.globals['WHITESTAR'] = WHITESTAR
@@ -68,7 +68,7 @@ def index():
 @bp.route('/<user>/tags/<tag_name>')
 def list_view(user, tag_name):
     offset = request.args.get("offset", type=int, default=0)
-    pagesize = request.args.get("pagesize", type=int, default=current_app.config['SLASTI_PAGE_SIZE'])
+    pagesize = request.args.get("pagesize", type=int, default=current_app.config['PAGE_SIZE'])
 
     if not tag_name and tag_name is not None:
         redirect(url_for_current_user('.list_view'), 303)

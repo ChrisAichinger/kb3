@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from werkzeug.wsgi import DispatcherMiddleware
-from slasti import create_app
+from kb3 import create_app
 
 
 def simple(env, resp):
