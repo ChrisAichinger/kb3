@@ -85,7 +85,13 @@ def list_view(user, tag_name):
         next_offset = offset + pagesize
         next_link = url_for_current_user('.list_view', offset=next_offset, pagesize=pagesize, tag_name=tag_name)
 
-    return render_template('html_mark.html', title=title, marks=marks, next_page_link=next_link, prev_page_link=prev_link)
+    return render_template(
+        'html_mark.html',
+        page_title=f'Tag {tag_name}' if tag_name else None,
+        title=title,
+        marks=marks,
+        next_page_link=next_link,
+        prev_page_link=prev_link)
 
 
 @bp.route('/<user>/mark.<int:mark_id>')
@@ -99,17 +105,19 @@ def mark_view(user, mark_id):
     succ_link = url_for_current_user(".mark_view", mark_id=succs[0].id) if succs else None
     pred_link = url_for_current_user(".mark_view", mark_id=preds[0].id) if preds else None
 
-    return render_template('html_mark.html', marks=[mark], show_edit=True, next_page_link=succ_link, prev_page_link=pred_link)
-    if self.method == 'GET':
-        return self.mark_get(mark)
-    if self.method == 'POST':
-        return self.mark_post(mark)
+    return render_template(
+        'html_mark.html',
+        page_title=mark.title,
+        marks=[mark],
+        show_edit=True,
+        next_page_link=succ_link,
+        prev_page_link=pred_link)
 
 
 @bp.route('/<user>/tags')
 def taglist_view(user):
     tags = g.db.get_tags()
-    return render_template('html_tags.html', current_tag='tags', tags=tags)
+    return render_template('html_tags.html', page_title='Tags', current_tag='tags', tags=tags)
 
 
 @bp.route('/<user>/search')
@@ -132,7 +140,11 @@ def search_view(user):
     marks = [m
              for m in marks
              if search.evaluate(callback=lambda needle: contains(needle, m))]
-    return render_template('html_mark.html', title="[ search results ]", marks=marks)
+    return render_template(
+        'html_mark.html',
+        page_title=f'Search `{query}`',
+        title=f"[ Search `{query}` ]",
+        marks=marks)
 
 
 #################
@@ -147,14 +159,17 @@ def new_edit_view(user, mark_id):
         url = request.args.get('url', '') or request.args.get('href', '')
         note = request.args.get('note', '')
         mark = tagbase.Bookmark(title=title, url=url)
+        page_title = f'New bookmark `{title}`'
     else:
         mark = g.db.lookup(mark_id)
         if not mark:
             raise abort(404, "Bookmark not found")
+        page_title = f'Edit `{mark.title}`'
 
     return render_template(
         "html_editform.html",
         mark=mark,
+        page_title=page_title,
         same_url_marks=g.db.get_marks(url=mark.url, not_mark_id=mark.id),
         similar_marks=g.db.find_similar(mark),
         all_tags=[t.name for t in g.db.get_tags(sort_by_frequency=True)],
